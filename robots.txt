@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://avivek-dwivedi.github.io/sitemap.xml

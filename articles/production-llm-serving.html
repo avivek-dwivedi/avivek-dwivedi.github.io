@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Designing Production LLM Serving Systems | Avivek Dwivedi</title>
+  <meta name="description" content="A systems-level guide to production LLM serving with vLLM, KServe, GPU workers, routing, queueing, autoscaling, observability and failure recovery.">
+  <link rel="canonical" href="https://avivek-dwivedi.github.io/articles/production-llm-serving.html">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Designing Production LLM Serving Systems | Avivek Dwivedi">
+  <meta property="og:description" content="A systems-level guide to production LLM serving with vLLM, KServe, GPU workers, routing, queueing, autoscaling, observability and failure recovery.">
+  <meta property="og:url" content="https://avivek-dwivedi.github.io/articles/production-llm-serving.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Designing Production LLM Serving Systems",
+    "description": "A systems-level look at vLLM, KServe, GPU inference, routing, queueing, autoscaling, observability and failure recovery.",
+    "author": {
+      "@type": "Person",
+      "name": "Avivek Dwivedi",
+      "url": "https://avivek-dwivedi.github.io/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "Avivek Dwivedi",
+      "url": "https://avivek-dwivedi.github.io/"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://avivek-dwivedi.github.io/articles/production-llm-serving.html"
+    },
+    "articleSection": "LLM Systems",
+    "keywords": ["vLLM", "KServe", "Kubernetes", "GPU", "Inference", "LLM serving"],
+    "dateModified": "2026-09-18"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#article-main">Skip to content</a>
+
+  <nav class="nav" aria-label="Primary">
+    <span class="nav-brand"><a href="/">AVIVEK</a></span>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/#articles">Articles</a></li>
+      <li><a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub</a></li>
+      <li><a href="https://www.linkedin.com/in/avivek-dwivedi-placeholder" rel="noopener">LinkedIn</a></li>
+    </ul>
+  </nav>
+
+  <main id="article-main">
+    <div class="shell">
+      <div class="article-hero">
+        <a class="back-home" href="/">← Back to home</a>
+        <p class="eyebrow">LLM Systems</p>
+        <h1>Designing Production LLM Serving Systems</h1>
+        <p class="subtitle">A systems-level look at vLLM, KServe, GPU inference, routing, queueing, autoscaling, observability and failure recovery.</p>
+        <div class="article-meta">
+          <span>Avivek Dwivedi</span>
+          <span class="dot">·</span>
+          <span>~20 min</span>
+          <span class="dot">·</span>
+          <span class="tag tag-accent">Advanced</span>
+          <span class="dot">·</span>
+          <span>Updated Sep 2026</span>
+        </div>
+        <div class="meta" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <span class="tag">vLLM</span>
+          <span class="tag">KServe</span>
+          <span class="tag">Kubernetes</span>
+          <span class="tag">GPU</span>
+          <span class="tag">Inference</span>
+        </div>
+        <p class="opening">Running an LLM behind an HTTP endpoint is easy. Operating it under variable concurrency, long contexts, GPU memory pressure, failures and latency objectives is a different systems problem. This article builds the serving architecture from the inference engine outward.</p>
+      </div>
+    </div>
+
+    <div class="article-shell">
+      <article class="article-body">
+
+        <h2 id="s1">01. Serving is more than an inference endpoint</h2>
+        <p>In development, a model call is almost trivially simple:</p>
+        <div class="flow">Client → model server → GPU</div>
+        <p>Production serving is not the same system with more copies. A realistic request path looks more like:</p>
+        <div class="flow">Client
+  → gateway
+  → authentication
+  → quotas / rate limiting
+  → admission control
+  → request routing
+  → inference replicas
+  → GPU
+  → streaming response</div>
+        <p>Around the request path sits a set of supporting systems: <strong>metrics</strong>, <strong>traces</strong>, <strong>logs</strong>, <strong>model storage</strong>, <strong>autoscaling</strong>, and <strong>deployment controls</strong>. None of these are optional for a service that carries real traffic.</p>
+
+        <div class="article-callout mental-model">
+          <span class="callout-label">Mental Model</span>
+          <p>vLLM solves important inference-engine problems. It does not by itself solve the entire production-serving platform. Similarly, KServe provides serving orchestration and infrastructure-level capabilities, but does not replace the inference engine. Neither technology should be oversimplified; they operate at different layers and each has a distinct responsibility.</p>
+        </div>
+
+        <h2 id="s2">02. Request lifecycle</h2>
+        <p>A single inference request moves through a fixed pipeline before a single token reaches the client:</p>
+        <div class="flow">HTTP request
+  ↓
+validation
+  ↓
+tokenization
+  ↓
+queue
+  ↓
+scheduler
+  ↓
+prefill
+  ↓
+KV cache
+  ↓
+decode loop
+  ↓
+stream tokens
+  ↓
+completion</div>
+
+        <h3>Tokenization</h3>
+        <p>The prompt string is converted into token IDs. This is CPU-bound and happens before the GPU is touched. Long prompts cost more here than short ones.</p>
+
+        <h3>Prefill</h3>
+        <p>The prompt tokens are processed in a single forward pass to produce the first token and populate the KV cache for those tokens. Prefill is compute-heavy and often the dominant contributor to first-token latency.</p>
+
+        <h3>Decode</h3>
+        <p>After prefill, the model generates one token at a time, reusing the KV cache and appending each new token's state. Decode is memory-bandwidth bound and typically much cheaper per token than prefill.</p>
+
+        <h3>KV cache</h3>
+        <p>The cached key/value tensors for all processed tokens. It lets each decode step avoid recomputing the full prompt and prior tokens. KV-cache memory grows with sequence length and concurrency, and is one of the primary resources the scheduler must manage.</p>
+
+        <h3>Streaming</h3>
+        <p>Tokens are returned to the client as they are produced, rather than waiting for the full generation. Streaming changes how the client experiences latency and how the server must hold the connection and batch state.</p>
+
+        <h3>Why TTFT and per-token latency measure different things</h3>
+        <p>Time to first token (TTFT) is dominated by prefill: prompt length, queue wait, and scheduling. Per-token latency during decode is dominated by KV-cache memory bandwidth, batching decisions, and the number of concurrent sequences. A service can have fast TTFT and slow decode, or vice versa, depending on load.</p>
+
+        <h3>Metrics to know</h3>
+        <ul>
+          <li><strong>TTFT</strong> — Time to First Token. The latency from request arrival to the first generated token.</li>
+          <li><strong>ITL / TPOT</strong> — Inter-token latency / Time per Output Token. Per-token cost during decode.</li>
+          <li><strong>End-to-end latency</strong> — Total time from request to completion.</li>
+          <li><strong>Throughput</strong> — Tokens (or requests) completed per unit time across the system.</li>
+          <li><strong>Concurrency</strong> — Number of in-flight requests being processed simultaneously.</li>
+        </ul>
+        <p>These metrics are not interchangeable. Throughput optimizations can hurt TTFT; strict per-token latency targets can reduce how many requests can be batched together. Benchmark numbers are intentionally omitted here — see <a href="#s10">Section 10</a> for the evidence framework.</p>
+
+        <h2 id="s3">03. What vLLM is responsible for</h2>
+        <p>vLLM is the inference engine. Conceptually, it owns everything that happens between "a request is admitted" and "tokens are returned":</p>
+        <ul>
+          <li>Model loading and weight initialization</li>
+          <li>Request scheduling</li>
+          <li>Continuous batching</li>
+          <li>KV-cache management</li>
+          <li>Paged KV-cache concepts (virtual memory-like paging of KV blocks)</li>
+          <li>Prefix reuse / automatic prefix caching where applicable</li>
+          <li>Token generation</li>
+          <li>OpenAI-compatible API serving</li>
+          <li>Quantized models where supported</li>
+          <li>Distributed inference concepts (tensor parallelism, pipeline parallelism)</li>
+          <li>GPU execution</li>
+        </ul>
+
+        <div class="article-callout mental-model">
+          <span class="callout-label">Mental Model</span>
+          <p>"vLLM optimizes how many generation workloads share expensive GPU resources."</p>
+        </div>
+
+        <p>The reason continuous batching matters is that generation is not like traditional fixed-batch inference. In a classic batch, every input produces one forward pass and the batch is done. In generation, sequences finish at different times: a short answer completes in a few tokens while a long one keeps decoding. If the engine waited for a fixed batch to fill or to drain, GPU utilization would crater. Continuous batching inserts new requests into running batches as slots free up, keeping the GPU busy while sequences arrive and leave independently.</p>
+
+        <p>This is also why batch size for LLM serving cannot be treated like a fixed hyperparameter. The effective batch is dynamic, driven by memory (how many KV caches fit), by the mix of prompt and generation lengths, and by scheduling policy.</p>
+
+        <h4>Illustrative configuration</h4>
+        <div class="code-block">
+          <span class="code-label">Illustrative configuration — not production-ready</span>
+<pre><code># Start a vLLM OpenAI-compatible server (placeholder model name)
+vllm serve MODEL_NAME \
+  --tensor-parallel-size 1 \
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.90</code></pre>
+        </div>
+
+        <h2 id="s4">04. What KServe adds</h2>
+        <p>Kubernetes and KServe operate at a different layer. vLLM runs the model; KServe manages the lifecycle of the thing that runs the model. KServe responsibilities include:</p>
+        <ul>
+          <li>Deployment lifecycle for inference services</li>
+          <li>InferenceService resource abstraction</li>
+          <li>Replica management</li>
+          <li>Networking and ingress</li>
+          <li>Autoscaling integrations</li>
+          <li>Rollout / versioning concepts (canary, blue-green)</li>
+          <li>Model-serving infrastructure (knative, networking, queues)</li>
+          <li>Routing layer in front of model workers</li>
+          <li>Kubernetes resource scheduling (pods, GPUs, nodes)</li>
+        </ul>
+
+        <p>The high-level architecture looks like:</p>
+        <div class="flow">                    Observability
+                         │
+Client → Gateway → KServe / Routing
+                     │
+             ┌───────┼───────┐
+             ↓       ↓       ↓
+           vLLM    vLLM    vLLM
+             ↓       ↓       ↓
+            GPU     GPU     GPU</div>
+
+        <p>Model storage feeds model workers (workers pull or mount weights at startup). Autoscaling observes serving demand and decides when to add or remove vLLM replicas. The full diagram is rendered in SVG below.</p>
+
+        <figure class="diagram-wrap">
+          <!-- Inline reference to the standalone SVG for reuse -->
+          <object type="image/svg+xml" data="/assets/diagrams/llm-serving-architecture.svg" role="img" aria-label="Production LLM serving architecture diagram" style="width:100%; min-height:420px;"></object>
+          <figcaption>Production LLM serving architecture — gateway, KServe routing, vLLM workers, GPUs, model storage and observability.</figcaption>
+        </figure>
+
+        <h4>Illustrative configuration</h4>
+        <div class="code-block">
+          <span class="code-label">Illustrative configuration — not production-ready</span>
+<pre><code># Illustrative KServe InferenceService (generic placeholders)
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: llm-service
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 4
+    containers:
+      - name: vllm
+        image: vllm/vllm-openai:latest
+        args: ["--model", "MODEL_NAME"]
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+            memory: 24Gi</code></pre>
+        </div>
+
+        <h2 id="s5">05. Routing, scheduling and queueing</h2>
+        <p>Three things called "routing" are not the same thing and should not be conflated:</p>
+        <ul>
+          <li><strong>Gateway routing</strong> — which service or model version receives the request.</li>
+          <li><strong>Replica routing</strong> — which specific inference replica handles it.</li>
+          <li><strong>vLLM internal scheduling</strong> — when the engine runs the request and which batch it joins.</li>
+        </ul>
+        <p>The full decision path:</p>
+        <div class="flow">Incoming request
+  ↓
+Which service/model?
+  ↓
+Which replica?
+  ↓
+When does the inference engine run it?
+  ↓
+Which batch does it join?</div>
+
+        <p>Several concerns shape this path:</p>
+        <ul>
+          <li><strong>Queue depth</strong> — how many requests are waiting. Depth itself is a load signal, not just a buffer.</li>
+          <li><strong>Fairness</strong> — how the scheduler picks between requests of different sizes and priorities.</li>
+          <li><strong>Long prompts</strong> — expensive prefill that can delay shorter requests.</li>
+          <li><strong>Long generations</strong> — long-running decode that occupies a batch slot for an extended time.</li>
+          <li><strong>Head-of-line effects</strong> — a single expensive request blocking many cheap ones.</li>
+          <li><strong>Request cancellation</strong> — clients disconnect; the engine must stop work and free KV cache.</li>
+          <li><strong>Admission control</strong> — rejecting or queueing requests before they consume resources.</li>
+        </ul>
+
+        <div class="article-callout architecture-decision">
+          <span class="callout-label">Architecture Decision</span>
+          <p>Unbounded queues are not a scaling strategy. If arrival rate remains above serving capacity, latency continues increasing even if requests are technically accepted. A queue hides overload; it does not resolve it.</p>
+        </div>
+
+        <h2 id="s6">06. Scaling LLM inference</h2>
+        <p>CPU utilization is often an incomplete scaling signal for GPU inference. A GPU-bound inference replica can be saturated on the GPU while CPU looks idle, or the reverse when tokenization and batching dominate. Useful scaling signals include:</p>
+        <ul>
+          <li>Queued requests</li>
+          <li>Running requests</li>
+          <li>Request latency</li>
+          <li>TTFT</li>
+          <li>KV-cache pressure</li>
+          <li>Token throughput</li>
+          <li>GPU utilization</li>
+          <li>Memory utilization</li>
+        </ul>
+
+        <h3>Why a new replica is not instantly useful</h3>
+        <p>Unlike a stateless web service, a new inference replica cannot serve traffic the moment it is scheduled:</p>
+        <ul>
+          <li>Model weights may need to download or load from storage</li>
+          <li>GPU allocation may take time (scheduling, driver, device init)</li>
+          <li>Initialization (CUDA context, weight loading, KV-cache pools) can be expensive</li>
+        </ul>
+        <p>Therefore autoscaling lag matters. The feedback loop below may take significantly longer than ordinary stateless web-service scaling:</p>
+        <div class="flow">Traffic spike
+  ↓
+Queue grows
+  ↓
+TTFT rises
+  ↓
+Autoscaler observes pressure
+  ↓
+New GPU worker requested
+  ↓
+Model loads
+  ↓
+Worker becomes ready
+  ↓
+Traffic redistributed</div>
+
+        <p>Scale-up risk: the autoscaler reacts to a spike that may already be over by the time the new replica is ready, leaving an expensive idle GPU. Scale-down risk: removing replicas while long generations are still in-flight can drop work or force retries. Both directions need hysteresis and an understanding of model load cost.</p>
+
+        <h2 id="s7">07. Failure modes and recovery</h2>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 1</span>GPU Out of Memory</p>
+          <h4>Possible causes</h4>
+          <ul>
+            <li>Model too large</li>
+            <li>Excessive KV-cache use</li>
+            <li>Very long contexts</li>
+            <li>High concurrency</li>
+            <li>Incorrect memory configuration</li>
+          </ul>
+          <h4>Possible responses</h4>
+          <ul>
+            <li>Admission limits (bound concurrency or context length)</li>
+            <li>Model quantization</li>
+            <li>Tensor parallelism to split the model across GPUs</li>
+            <li>Lower context / concurrency policy</li>
+            <li>Capacity planning against real workload, not assumptions</li>
+          </ul>
+          <p style="font-size:13px; color:var(--text-mute); margin:8px 0 0;">No single mitigation always fixes OOM — the right response depends on which resource is the binding constraint.</p>
+        </div>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 2</span>Queue Explosion</p>
+          <p style="font-size:14px; margin:8px 0;">The overload loop:</p>
+          <div class="flow">traffic spike
+  → queue depth rises
+  → TTFT rises
+  → timeout
+  → retry
+  → additional traffic</div>
+          <h4>Mitigation concepts</h4>
+          <ul>
+            <li>Bounded queues (reject when full rather than pile up)</li>
+            <li>Request deadlines</li>
+            <li>Admission control at the gateway</li>
+            <li>Backpressure to upstream callers</li>
+            <li>Controlled retries with retry budgets</li>
+          </ul>
+        </div>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 3</span>Cold / Slow Model Startup</p>
+          <p>Startup is not free. It involves: fetching model artifacts, container initialization, GPU allocation, weight loading, and readiness checks. A cold replica can take long enough that autoscaling based on instantaneous load is misleading. Pre-warming and keeping a minimum number of warm replicas are common responses.</p>
+        </div>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 4</span>Replica Failure</p>
+          <p>A vLLM replica can become unhealthy or be evicted. Recovery concerns: unhealthy worker removal, rescheduling on another node, retry semantics for the client, and — critically — what happens to requests already in generation. In-flight generations on a failed replica are typically lost; the system needs a defined retry or failure response rather than an implicit hang.</p>
+        </div>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 5</span>Distributed Worker Failure</p>
+          <p>With tensor parallelism, a single request spans multiple GPU workers (ranks) that communicate during each forward pass. A distributed process failure or communication error can impact the entire request group, not just one sequence. Exact behavior depends on the engine configuration; the important design point is that failure blast radius in distributed inference is wider than in single-replica serving.</p>
+        </div>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 6</span>Retry Storm</p>
+          <p>When many clients retry at once, retries amplify load and can make recovery harder. Use exponential backoff with jitter so retries spread out rather than synchronize.</p>
+          <div class="article-callout architecture-decision" style="margin-top:12px;">
+            <span class="callout-label">Important</span>
+            <p>Retries must respect request deadlines and workload semantics. A retry that arrives after the original request's deadline has passed is wasted work that still consumes GPU resources.</p>
+          </div>
+        </div>
+
+        <h2 id="s8">08. Observability</h2>
+        <p>Four metric categories cover the system end to end.</p>
+
+        <div class="metric-grid">
+          <div class="metric-card">
+            <h4>Request metrics</h4>
+            <ul>
+              <li>Request rate</li>
+              <li>Success / error rate</li>
+              <li>Latency</li>
+              <li>TTFT</li>
+              <li>Output token latency</li>
+            </ul>
+          </div>
+          <div class="metric-card">
+            <h4>Scheduler metrics</h4>
+            <ul>
+              <li>Queued requests</li>
+              <li>Running requests</li>
+            </ul>
+          </div>
+          <div class="metric-card">
+            <h4>Inference metrics</h4>
+            <ul>
+              <li>Token throughput</li>
+              <li>KV-cache utilization / pressure</li>
+              <li>Batch behavior</li>
+            </ul>
+          </div>
+          <div class="metric-card">
+            <h4>Infrastructure metrics</h4>
+            <ul>
+              <li>GPU utilization</li>
+              <li>GPU memory</li>
+              <li>Pod health</li>
+              <li>Restart count</li>
+              <li>Node health</li>
+            </ul>
+          </div>
+        </div>
+
+        <p>Each signal answers a different question:</p>
+        <ul>
+          <li><strong>Metrics</strong> answer aggregate behavior — what is the system doing over time.</li>
+          <li><strong>Logs</strong> explain events — what happened at a specific moment.</li>
+          <li><strong>Traces</strong> explain individual request paths — where a single request spent its time.</li>
+        </ul>
+        <p>Tools like <strong>Prometheus</strong>, <strong>OpenTelemetry</strong>, and <strong>Grafana</strong> are common examples; they are not mandatory, and the same categories can be served by other stacks. The categories matter more than the vendor.</p>
+
+        <div class="dashboard-mock">
+          <p class="dash-note">Illustrative dashboard layout — not experiment data</p>
+          <div class="dash-grid">
+            <div class="dash-panel">
+              <div class="panel-title">Request rate</div>
+              <div class="panel-line med"></div>
+              <div class="panel-line"></div>
+              <div class="panel-value">—</div>
+            </div>
+            <div class="dash-panel">
+              <div class="panel-title">TTFT</div>
+              <div class="panel-line short"></div>
+              <div class="panel-line med"></div>
+              <div class="panel-value">—</div>
+            </div>
+            <div class="dash-panel">
+              <div class="panel-title">Queue depth</div>
+              <div class="panel-line"></div>
+              <div class="panel-line short"></div>
+              <div class="panel-value">—</div>
+            </div>
+            <div class="dash-panel">
+              <div class="panel-title">GPU util</div>
+              <div class="panel-line med"></div>
+              <div class="panel-line med"></div>
+              <div class="panel-value">—</div>
+            </div>
+            <div class="dash-panel">
+              <div class="panel-title">Token throughput</div>
+              <div class="panel-line"></div>
+              <div class="panel-line med"></div>
+              <div class="panel-value">—</div>
+            </div>
+            <div class="dash-panel">
+              <div class="panel-title">KV-cache pressure</div>
+              <div class="panel-line short"></div>
+              <div class="panel-line"></div>
+              <div class="panel-value">—</div>
+            </div>
+            <div class="dash-panel">
+              <div class="panel-title">Error rate</div>
+              <div class="panel-line short"></div>
+              <div class="panel-line short"></div>
+              <div class="panel-value">—</div>
+            </div>
+            <div class="dash-panel">
+              <div class="panel-title">Pod restarts</div>
+              <div class="panel-line short"></div>
+              <div class="panel-line short"></div>
+              <div class="panel-value">—</div>
+            </div>
+          </div>
+        </div>
+
+        <h2 id="s9">09. Production architecture</h2>
+        <p>Putting the layers together, a production LLM serving system has these components and relationships:</p>
+        <ul>
+          <li>Clients</li>
+          <li>API Gateway</li>
+          <li>Authentication</li>
+          <li>Rate Limits / Quotas</li>
+          <li>Admission Control</li>
+          <li>Model Router</li>
+          <li>KServe / Kubernetes</li>
+          <li>vLLM workers</li>
+          <li>GPUs</li>
+          <li>Model Storage</li>
+          <li>Prometheus / OpenTelemetry</li>
+          <li>Grafana</li>
+          <li>Autoscaling</li>
+          <li>Deployment / Rollback controls</li>
+        </ul>
+
+        <figure class="diagram-wrap">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-serving-architecture.svg" role="img" aria-label="Production LLM serving architecture diagram" style="width:100%; min-height:420px;"></object>
+          <figcaption>Full production architecture — clients, gateway, KServe, vLLM workers, GPUs, model storage, observability and autoscaling.</figcaption>
+        </figure>
+
+        <h3>Responsibility map</h3>
+        <div class="resp-map">
+          <div class="resp-row"><div class="resp-key">Gateway</div><div class="resp-val">External traffic policy</div></div>
+          <div class="resp-row"><div class="resp-key">KServe / Kubernetes</div><div class="resp-val">Service orchestration</div></div>
+          <div class="resp-row"><div class="resp-key">vLLM</div><div class="resp-val">GPU inference execution</div></div>
+          <div class="resp-row"><div class="resp-key">Observability stack</div><div class="resp-val">System visibility</div></div>
+          <div class="resp-row"><div class="resp-key">Object / model storage</div><div class="resp-val">Model artifacts</div></div>
+          <div class="resp-row"><div class="resp-key">Autoscaler</div><div class="resp-val">Capacity response</div></div>
+        </div>
+
+        <h2 id="s10">10. Experiment evidence</h2>
+        <div class="evidence-block">
+          <p class="evidence-label">Evidence framework</p>
+          <p>This article separates architecture claims from empirical measurements. The following experiments will be published with exact environment metadata and raw artifacts. No benchmark numbers are claimed until the runs are complete.</p>
+        </div>
+
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment 01 — Baseline vLLM Serving</h3>
+            <span class="status">Pending experiment</span>
+          </div>
+          <p class="exp-goal"><strong>Goal:</strong> Observe latency and throughput as concurrency increases.</p>
+          <p class="exp-record-label">Record</p>
+          <ul>
+            <li>Model</li>
+            <li>GPU</li>
+            <li>vLLM version</li>
+            <li>Precision</li>
+            <li>Context length</li>
+            <li>Concurrency</li>
+            <li>TTFT</li>
+            <li>Output-token latency</li>
+            <li>Throughput</li>
+            <li>GPU memory</li>
+          </ul>
+          <p style="font-size:13px; color:var(--text-mute); margin-top:8px;">Evidence status: Pending experiment. Experiment evidence will be added after the run.</p>
+        </div>
+
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment 02 — Queue Pressure</h3>
+            <span class="status">Pending experiment</span>
+          </div>
+          <p class="exp-goal"><strong>Goal:</strong> Increase request concurrency until queue pressure becomes visible.</p>
+          <p class="exp-record-label">Observe</p>
+          <ul>
+            <li>Queued requests</li>
+            <li>TTFT</li>
+            <li>Throughput</li>
+            <li>GPU utilization</li>
+          </ul>
+          <p style="font-size:13px; color:var(--text-mute); margin-top:8px;">Evidence status: Pending experiment. Experiment evidence will be added after the run.</p>
+        </div>
+
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment 03 — Replica Scaling</h3>
+            <span class="status">Pending experiment</span>
+          </div>
+          <p class="exp-goal"><strong>Goal:</strong> Observe service behavior when additional inference replicas are introduced.</p>
+          <p class="exp-record-label">Observe</p>
+          <ul>
+            <li>Queue depth</li>
+            <li>Replica readiness</li>
+            <li>Traffic redistribution</li>
+            <li>Latency</li>
+          </ul>
+          <p style="font-size:13px; color:var(--text-mute); margin-top:8px;">Evidence status: Pending experiment. Experiment evidence will be added after the run.</p>
+        </div>
+
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment 04 — Failure / Restart</h3>
+            <span class="status">Pending experiment</span>
+          </div>
+          <p class="exp-goal"><strong>Goal:</strong> Observe how the service behaves when an inference worker becomes unavailable.</p>
+          <p style="font-size:13px; color:var(--text-mute); margin-top:8px;">Evidence status: Pending experiment. Experiment evidence will be added after the run.</p>
+        </div>
+
+        <div class="article-callout">
+          <span class="callout-label">Reproduce</span>
+          <p><strong>Environment:</strong> To be published with experiment.</p>
+          <p><strong>Configuration:</strong> To be published.</p>
+          <p><strong>Benchmark command:</strong> To be published.</p>
+          <p><strong>Raw data:</strong> To be published.</p>
+          <p><strong>Source:</strong> GitHub repository link will be added when the experiment repository is available.</p>
+        </div>
+
+        <h2 id="s11">11. Design checklist</h2>
+        <h4>Before production</h4>
+        <ul class="checklist">
+          <li>Define latency objectives</li>
+          <li>Bound context length</li>
+          <li>Bound generation length</li>
+          <li>Establish concurrency limits</li>
+          <li>Define queue policy</li>
+          <li>Define request deadlines</li>
+          <li>Configure observability</li>
+          <li>Measure TTFT and output latency</li>
+          <li>Measure KV-cache behavior</li>
+          <li>Test failure recovery</li>
+          <li>Test overload</li>
+          <li>Validate autoscaling behavior</li>
+          <li>Define model rollout and rollback</li>
+          <li>Document infrastructure assumptions</li>
+        </ul>
+
+        <h2 id="s12">12. Takeaways</h2>
+        <ol>
+          <li>An inference engine and a serving platform solve different layers of the system.</li>
+          <li>GPU inference scaling requires understanding queueing, model startup and inference-specific metrics.</li>
+          <li>TTFT, output latency, throughput and KV-cache pressure reveal different bottlenecks.</li>
+          <li>Reliability requires overload handling and recovery paths, not only additional replicas.</li>
+          <li>Production claims should be backed by reproducible experiments.</li>
+        </ol>
+
+        <div class="article-end">
+          <div class="next-article">
+            <p class="label">Next article</p>
+            <p class="title">LLM Inference Engineering: From Prompt to Token</p>
+            <p class="soon">Coming soon</p>
+          </div>
+        </div>
+      </article>
+
+      <aside class="toc" aria-label="Table of contents">
+        <button class="toc-toggle" type="button" aria-expanded="true">On this page</button>
+        <div class="toc-list">
+          <h2>Contents</h2>
+          <ol>
+            <li><a href="#s1" data-toc="s1">01. Serving is more than an inference endpoint</a></li>
+            <li><a href="#s2" data-toc="s2">02. Request lifecycle</a></li>
+            <li><a href="#s3" data-toc="s3">03. What vLLM is responsible for</a></li>
+            <li><a href="#s4" data-toc="s4">04. What KServe adds</a></li>
+            <li><a href="#s5" data-toc="s5">05. Routing, scheduling and queueing</a></li>
+            <li><a href="#s6" data-toc="s6">06. Scaling LLM inference</a></li>
+            <li><a href="#s7" data-toc="s7">07. Failure modes and recovery</a></li>
+            <li><a href="#s8" data-toc="s8">08. Observability</a></li>
+            <li><a href="#s9" data-toc="s9">09. Production architecture</a></li>
+            <li><a href="#s10" data-toc="s10">10. Experiment evidence</a></li>
+            <li><a href="#s11" data-toc="s11">11. Design checklist</a></li>
+            <li><a href="#s12" data-toc="s12">12. Takeaways</a></li>
+          </ol>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="shell">
+      <div class="footer-name">Avivek Dwivedi</div>
+      <div>AI Systems Engineering</div>
+      <div class="footer-links">
+        <a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub</a>
+        <a href="https://www.linkedin.com/in/avivek-dwivedi-placeholder" rel="noopener">LinkedIn</a>
+      </div>
+      <div style="margin-top:12px;">&copy; <span id="year">2026</span> Avivek Dwivedi</div>
+    </div>
+  </footer>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>

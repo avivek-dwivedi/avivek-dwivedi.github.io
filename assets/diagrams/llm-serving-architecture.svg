@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" role="img" aria-labelledby="diagTitle diagDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="diagTitle">Production LLM Serving Architecture</title>
+  <desc id="diagDesc">Clients connect through an API gateway with authentication, rate limits and admission control, then a model router forwards to KServe/Kubernetes which schedules vLLM workers on GPUs. Model storage feeds the workers. Observability (Prometheus/OpenTelemetry and Grafana) and autoscaling observe the workers.</desc>
+
+  <style>
+    .layer { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1; }
+    .box   { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .gpu   { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 6; ry: 6; }
+    .vllm  { fill: #ffffff; stroke: #1f2328; stroke-width: 1.4; rx: 6; ry: 6; }
+    .obs   { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 6; ry: 6; }
+    .store { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 6; ry: 6; }
+    .auto  { fill: #f6f8fa; stroke: #30363d; stroke-width: 1; stroke-dasharray: 4 3; rx: 6; ry: 6; }
+    .t     { font-size: 13px; fill: #1f2328; text-anchor: middle; }
+    .ts    { font-size: 11px; fill: #59636e; text-anchor: middle; }
+    .edge  { stroke: #59636e; stroke-width: 1.2; fill: none; }
+    .edge-d{ stroke: #59636e; stroke-width: 1.2; fill: none; stroke-dasharray: 4 3; }
+    .group-label { font-size: 10px; fill: #6e7781; text-anchor: start; letter-spacing: 0.08em; }
+  </style>
+
+  <!-- Layer bands -->
+  <rect class="layer" x="20" y="40"  width="860" height="70"  rx="6"/>
+  <rect class="layer" x="20" y="130" width="860" height="140" rx="6"/>
+  <rect class="layer" x="20" y="290" width="860" height="150" rx="6"/>
+  <rect class="layer" x="20" y="460" width="860" height="120" rx="6"/>
+
+  <text class="group-label" x="32" y="32">CLIENT</text>
+  <text class="group-label" x="32" y="122">GATEWAY / CONTROL</text>
+  <text class="group-label" x="32" y="282">ORCHESTRATION</text>
+  <text class="group-label" x="32" y="452">INFRASTRUCTURE</text>
+
+  <!-- Client -->
+  <rect class="box" x="400" y="55" width="100" height="40"/>
+  <text class="t" x="450" y="80">Clients</text>
+
+  <!-- Gateway row -->
+  <rect class="box" x="70"  y="155" width="120" height="44"/>
+  <text class="t" x="130" y="174">API Gateway</text>
+  <text class="ts" x="130" y="190">external entry</text>
+
+  <rect class="box" x="220" y="155" width="120" height="44"/>
+  <text class="t" x="280" y="174">Authentication</text>
+  <text class="ts" x="280" y="190">identity / tokens</text>
+
+  <rect class="box" x="370" y="155" width="130" height="44"/>
+  <text class="t" x="435" y="174">Rate Limits / Quotas</text>
+  <text class="ts" x="435" y="190">per-client bounds</text>
+
+  <rect class="box" x="530" y="155" width="130" height="44"/>
+  <text class="t" x="595" y="174">Admission Control</text>
+  <text class="ts" x="595" y="190">reject / queue policy</text>
+
+  <rect class="box" x="690" y="155" width="160" height="44"/>
+  <text class="t" x="770" y="174">Model Router</text>
+  <text class="ts" x="770" y="190">service / replica select</text>
+
+  <!-- KServe -->
+  <rect class="box" x="320" y="305" width="260" height="46"/>
+  <text class="t" x="450" y="324">KServe / Kubernetes</text>
+  <text class="ts" x="450" y="341">deployment · replicas · networking · autoscaling</text>
+
+  <!-- vLLM workers -->
+  <rect class="vllm" x="170" y="395" width="130" height="40"/>
+  <text class="t" x="235" y="420">vLLM worker</text>
+
+  <rect class="vllm" x="385" y="395" width="130" height="40"/>
+  <text class="t" x="450" y="420">vLLM worker</text>
+
+  <rect class="vllm" x="600" y="395" width="130" height="40"/>
+  <text class="t" x="665" y="420">vLLM worker</text>
+
+  <!-- GPUs -->
+  <rect class="gpu" x="180" y="475" width="110" height="36"/>
+  <text class="t" x="235" y="498">GPU</text>
+
+  <rect class="gpu" x="395" y="475" width="110" height="36"/>
+  <text class="t" x="450" y="498">GPU</text>
+
+  <rect class="gpu" x="610" y="475" width="110" height="36"/>
+  <text class="t" x="665" y="498">GPU</text>
+
+  <!-- Model storage -->
+  <rect class="store" x="70" y="475" width="90" height="36"/>
+  <text class="t" x="115" y="498">Model Store</text>
+
+  <!-- Observability -->
+  <rect class="obs" x="740" y="475" width="120" height="36"/>
+  <text class="t" x="800" y="498">Observability</text>
+
+  <!-- Autoscaling (dashed) -->
+  <rect class="auto" x="730" y="305" width="140" height="46"/>
+  <text class="t" x="800" y="324">Autoscaler</text>
+  <text class="ts" x="800" y="341">capacity response</text>
+
+  <!-- Edges -->
+  <!-- client -> gateway -->
+  <path class="edge" d="M450,95 L450,120 L130,120 L130,155"/>
+  <!-- gateway chain -->
+  <path class="edge" d="M190,177 L220,177"/>
+  <path class="edge" d="M340,177 L370,177"/>
+  <path class="edge" d="M500,177 L530,177"/>
+  <path class="edge" d="M660,177 L690,177"/>
+  <!-- router -> kserve -->
+  <path class="edge" d="M770,199 L770,260 L450,260 L450,305"/>
+  <!-- kserve -> vllm workers -->
+  <path class="edge" d="M390,351 L235,395"/>
+  <path class="edge" d="M450,351 L450,395"/>
+  <path class="edge" d="M510,351 L665,395"/>
+  <!-- vllm -> gpu -->
+  <path class="edge" d="M235,435 L235,475"/>
+  <path class="edge" d="M450,435 L450,475"/>
+  <path class="edge" d="M665,435 L665,475"/>
+  <!-- model store -> workers (dashed) -->
+  <path class="edge-d" d="M115,475 L115,375 L235,375 L235,395"/>
+  <path class="edge-d" d="M160,493 L395,493" />
+  <!-- autoscaler -> kserve (dashed, feedback) -->
+  <path class="edge-d" d="M730,328 L580,328"/>
+  <!-- autoscaler observes workers (dashed) -->
+  <path class="edge-d" d="M800,351 L800,380 L665,380 L665,395"/>
+  <!-- workers -> observability (dashed) -->
+  <path class="edge-d" d="M730,415 L745,415 L745,475 L740,475"/>
+  <path class="edge-d" d="M450,435 L450,455 L800,455 L800,475"/>
+
+  <!-- Legend -->
+  <text class="ts" x="450" y="588" style="letter-spacing:0.04em;">Solid lines: request/data path · Dashed lines: model artifacts, feedback and metrics</text>
+</svg>
