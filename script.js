@@ -95,4 +95,77 @@
   // ---- Footer year ----
   var yearEl = document.getElementById("year");
   if (yearEl) { yearEl.textContent = new Date().getFullYear(); }
+
+  // ---- Engineering Notebook: render writing-plan.json ----
+  var planEl = document.getElementById("writing-plan");
+  if (planEl && "fetch" in window) {
+    fetch("/data/writing-plan.json", { cache: "no-cache" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("not ok");
+        return r.json();
+      })
+      .then(function (plan) { renderPlan(planEl, plan); })
+      .catch(function () { /* keep static fallback */ });
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function renderPlan(container, plan) {
+    container.innerHTML = "";
+
+    // Published
+    (plan.published || []).forEach(function (p, i) {
+      var block = el("div", "notebook-block");
+      block.appendChild(el("p", "notebook-label", "Published"));
+      block.appendChild(el("h3", "notebook-title", p.title));
+      if (p.focus) block.appendChild(el("p", "notebook-focus", p.focus));
+      if (p.url) {
+        var a = el("a", "notebook-link", "Read →");
+        a.href = p.url;
+        block.appendChild(a);
+      }
+      container.appendChild(block);
+      container.appendChild(el("hr", "div"));
+    });
+
+    // Current
+    if (plan.current) {
+      var c = plan.current;
+      var cblock = el("div", "notebook-block");
+      cblock.appendChild(el("p", "notebook-label", "Now"));
+      cblock.appendChild(el("h3", "notebook-title", c.title));
+      if (c.focus) {
+        var fc = el("p", "notebook-focus", "Currently looking at:");
+        cblock.appendChild(fc);
+        var fcLine = el("p", "notebook-focus-line", c.focus);
+        cblock.appendChild(fcLine);
+      }
+      if (c.workingOn) {
+        var wo = el("p", "notebook-working", "Working on:");
+        cblock.appendChild(wo);
+        var woLine = el("p", "notebook-working-line", c.workingOn);
+        cblock.appendChild(woLine);
+      }
+      container.appendChild(cblock);
+      container.appendChild(el("hr", "div"));
+    }
+
+    // Next
+    if (plan.next && plan.next.length) {
+      var nblock = el("div", "notebook-block");
+      nblock.appendChild(el("p", "notebook-label", "Next"));
+      plan.next.forEach(function (n) {
+        var item = el("div", "notebook-next-item");
+        item.appendChild(el("h3", "notebook-title", n.title));
+        if (n.focus) item.appendChild(el("p", "notebook-focus", n.focus));
+        nblock.appendChild(item);
+      });
+      container.appendChild(nblock);
+    }
+  }
 })();

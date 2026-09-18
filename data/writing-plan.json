@@ -1,0 +1,28 @@
+{
+  "published": [
+    {
+      "title": "Designing Production LLM Serving Systems",
+      "category": "LLM Systems",
+      "focus": "vLLM, KServe, GPU serving, scaling and reliability",
+      "url": "/articles/production-llm-serving.html"
+    }
+  ],
+  "current": {
+    "title": "Inside LLM Inference: From Prefill to Decode",
+    "category": "LLM Inference",
+    "focus": "Prefill, decode, KV cache, batching, GPU memory and inference scheduling",
+    "workingOn": "Studying how cache behaviour, scheduling and concurrency affect latency and throughput."
+  },
+  "next": [
+    {
+      "title": "Building LLM APIs Under Production Limits",
+      "category": "Reliability",
+      "focus": "Adaptive rate limiting, TPM/RPM limits, batching, prompt caching, queues and streaming recovery"
+    },
+    {
+      "title": "Private LLMOps for Multi-Agent Systems",
+      "category": "LLMOps",
+      "focus": "OpenTelemetry, Langfuse, PostgreSQL, AWS and end-to-end agent observability"
+    }
+  ]
+}

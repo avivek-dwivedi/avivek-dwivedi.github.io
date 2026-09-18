@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Avivek Dwivedi — Applied AI Engineering</title>
-  <meta name="description" content="Applied AI engineering portfolio of Avivek Dwivedi covering production LLM systems, multimodal AI, agent systems, retrieval, model engineering and LLM infrastructure.">
+  <title>Avivek Dwivedi — Applied AI Engineer</title>
+  <meta name="description" content="Applied AI engineering portfolio of Avivek Dwivedi covering computer vision, multimodal AI, LLM infrastructure, model serving, LLMOps and agent systems.">
   <link rel="canonical" href="https://avivek-dwivedi.github.io/">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Avivek Dwivedi — Applied AI Engineering">
-  <meta property="og:description" content="Applied AI engineering portfolio of Avivek Dwivedi covering production LLM systems, multimodal AI, agent systems, retrieval, model engineering and LLM infrastructure.">
+  <meta property="og:title" content="Avivek Dwivedi — Applied AI Engineer">
+  <meta property="og:description" content="Applied AI engineering portfolio of Avivek Dwivedi covering computer vision, multimodal AI, LLM infrastructure, model serving, LLMOps and agent systems.">
   <meta property="og:url" content="https://avivek-dwivedi.github.io/">
-  <meta property="og:site_name" content="Avivek Dwivedi — Applied AI Engineering">
+  <meta property="og:site_name" content="Avivek Dwivedi — Applied AI Engineer">
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/styles.css">
@@ -35,29 +35,44 @@
     <section class="hero">
       <p class="eyebrow">Applied AI Engineering</p>
       <h1>Building production AI systems across models, infrastructure and applications.</h1>
-      <p class="lead">I work across multimodal products, LLM infrastructure, agent systems, retrieval and model engineering — taking AI systems from experimentation through serving, observability and production operations.</p>
+      <p class="lead">I work across computer vision, multimodal systems, LLM infrastructure and agents — from model training and inference to edge/cloud deployment, observability, serving and production reliability.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="/#systems">Explore Systems →</a>
-        <a class="btn" href="/#writing">Engineering Writing →</a>
+        <a class="btn" href="/#writing">Engineering Notebook →</a>
       </div>
-      <p class="hero-techline">VLM Systems · LLM Infrastructure · Agents · Retrieval · Model Engineering</p>
+      <p class="hero-techline">Vision → Multimodal → LLM Infrastructure → Agents</p>
       <p class="hero-author"><span>Avivek Dwivedi</span> — Applied AI Engineer</p>
     </section>
 
     <!-- Selected Systems -->
     <section class="section" id="systems">
       <h2>Selected Systems</h2>
-      <p class="section-intro">AI products and production systems spanning multimodal applications, model infrastructure and LLM operations.</p>
+      <p class="section-intro">Selected product and infrastructure work across computer vision, multimodal AI and production GenAI systems.</p>
 
-      <!-- System 01 — CAP LIVIS -->
-      <div class="system-block">
-        <div class="system-head">
-          <p class="system-label">01 / PRODUCT</p>
-          <h3 class="system-title">CAP LIVIS</h3>
-          <p class="system-subtitle">AI Product Engineering</p>
+      <!-- System 01 — LIVIS -->
+      <div class="system-block system-2col">
+        <div class="system-text">
+          <p class="system-label">01 / COMPUTER VISION PLATFORM</p>
+          <h3 class="system-title">LIVIS</h3>
+          <p class="system-subtitle">No-code computer vision platform</p>
+          <p class="system-desc">A no-code computer vision platform built around object-detection training workflows, with engineering spanning model training, job orchestration and production application infrastructure.</p>
+          <p class="system-meta">PyTorch · PyTorch Lightning · Django · Celery · Docker · GCP</p>
         </div>
-        <p class="system-desc">Applied AI product work spanning system architecture, model integration and production delivery.</p>
-        <p class="system-meta">Product Architecture &nbsp;·&nbsp; AI Systems &nbsp;·&nbsp; Production Engineering</p>
+
+        <figure class="flow-diagram" aria-label="LIVIS conceptual engineering flow">
+          <figcaption class="diagram-caption">Conceptual engineering flow</figcaption>
+          <div class="flow-col">
+            <div class="flow-box">Dataset</div>
+            <span class="arch-arrow">↓</span>
+            <div class="flow-box">Training Job</div>
+            <span class="arch-arrow">↓</span>
+            <div class="flow-box">PyTorch / PyTorch Lightning</div>
+            <span class="arch-arrow">↓</span>
+            <div class="flow-box">Model Artifact</div>
+            <span class="arch-arrow">↓</span>
+            <div class="flow-box">Application / Deployment Workflow</div>
+          </div>
+        </figure>
       </div>
 
       <hr class="div">
@@ -67,26 +82,23 @@
         <div class="system-text">
           <p class="system-label">02 / MULTIMODAL SYSTEM</p>
           <h3 class="system-title">VIS</h3>
-          <p class="system-subtitle">VLM / Vision Intelligence</p>
-          <p class="system-desc">VLM-based product engineering around visual understanding, multimodal reasoning and production vision workflows.</p>
-          <ul class="system-list">
-            <li>VLM inference</li>
-            <li>Multimodal pipelines</li>
-            <li>Vision workflows</li>
-            <li>Production integration</li>
-          </ul>
+          <p class="system-subtitle">Hybrid Object Detection + VLM System</p>
+          <p class="system-desc">A hybrid vision architecture combining object detection with VLM reasoning to support application-level visual workflows.</p>
+          <p class="system-meta">PyTorch · VLM · FastAPI · WebSocket · Object Detection</p>
         </div>
 
-        <figure class="vis-diagram" aria-label="Conceptual VLM system view">
+        <figure class="flow-diagram" aria-label="VIS hybrid CV and VLM system flow">
           <figcaption class="diagram-caption">Conceptual system view</figcaption>
-          <div class="vis-col">
-            <div class="vis-box">Visual Input</div>
+          <div class="flow-col">
+            <div class="flow-box">Image / Video</div>
             <span class="arch-arrow">↓</span>
-            <div class="vis-box">Vision / VLM Processing</div>
+            <div class="flow-box">Object Detection</div>
             <span class="arch-arrow">↓</span>
-            <div class="vis-box">Multimodal Reasoning</div>
+            <div class="flow-box">VLM Reasoning</div>
             <span class="arch-arrow">↓</span>
-            <div class="vis-box">Application Workflow</div>
+            <div class="flow-box">Application Logic</div>
+            <span class="arch-arrow">↓</span>
+            <div class="flow-box">Realtime / API Response</div>
           </div>
         </figure>
       </div>
@@ -98,42 +110,102 @@
         <div class="system-text">
           <p class="system-label">03 / AI INFRASTRUCTURE</p>
           <h3 class="system-title">Private LLMOps Platform</h3>
-          <p class="system-subtitle">Self-hosted observability and operations for production LLM systems.</p>
-          <p class="system-desc">A self-hosted LLMOps environment on AWS for traces, evaluations, prompt and version visibility, latency and token monitoring, cost analysis and production debugging.</p>
-          <p class="system-meta">AWS &nbsp;·&nbsp; Langfuse &nbsp;·&nbsp; OpenTelemetry &nbsp;·&nbsp; LLM Observability</p>
+          <p class="system-subtitle">Observability for production LLM and multi-agent systems.</p>
+          <p class="system-desc">A self-hosted LLMOps environment running in a private AWS setup, using OpenTelemetry, Langfuse and PostgreSQL to provide visibility across LLM and multi-agent execution.</p>
+          <p class="system-meta">AWS · OpenTelemetry · Langfuse · PostgreSQL · LLMOps</p>
           <p class="system-note">Private-cloud, self-hosted in a private AWS environment.</p>
         </div>
 
-        <figure class="llmops-diagram" aria-label="Private LLMOps platform architecture">
+        <figure class="llmops-diagram" aria-label="Private LLMOps conceptual observability architecture">
+          <figcaption class="diagram-caption">Conceptual observability architecture</figcaption>
           <div class="aws-frame">
             <span class="aws-label">Private AWS Environment</span>
-            <div class="llmops-stack">
-              <div class="arch-box">Applications / Agents</div>
-              <span class="arch-arrow">↓</span>
-              <div class="arch-box">LLM Runtime / Gateway</div>
-              <div class="llmops-side">
-                <span class="arch-arrow side">→</span>
-                <div class="arch-box arch-side-box">Models / APIs</div>
+            <div class="llmops-arch">
+              <div class="arch-box arch-top">Applications / Multi-Agent Systems</div>
+              <div class="llmops-split">
+                <div class="arch-box small">LLM Calls</div>
+                <div class="arch-box small">Tools / RAG</div>
               </div>
               <span class="arch-arrow">telemetry ↓</span>
+              <div class="arch-box">OpenTelemetry</div>
+              <span class="arch-arrow">↓</span>
               <div class="arch-box obs-box">Self-hosted Langfuse</div>
-              <ul class="arch-list">
-                <li>Traces</li>
-                <li>Evaluations</li>
-                <li>Prompt versions</li>
-                <li>Latency</li>
-                <li>Tokens</li>
-                <li>Cost</li>
-                <li>Production debugging</li>
-              </ul>
+              <span class="arch-arrow">↓</span>
+              <div class="arch-box">PostgreSQL</div>
+              <div class="llmops-outputs">
+                <div class="out-box"><span class="out-label">Traces</span><span class="out-sub">Prompt versions</span></div>
+                <div class="out-box"><span class="out-label">Evals</span><span class="out-sub">Tokens / Cost</span></div>
+                <div class="out-box"><span class="out-label">Debugging</span><span class="out-sub">Latency</span></div>
+              </div>
             </div>
           </div>
         </figure>
       </div>
+
+      <!-- Deployment context -->
+      <div class="deploy-context">
+        <div class="deploy-label">Deployment context</div>
+        <div class="deploy-meta">Cloud · Private / On-prem · Edge · NVIDIA Jetson</div>
+        <p class="deploy-note">Experience spans AI workloads deployed across cloud environments, private infrastructure and edge devices.</p>
+      </div>
+    </section>
+
+    <!-- Core Engineering -->
+    <section class="section" id="engineering">
+      <h2>Core Engineering</h2>
+      <p class="section-intro">Engineering problem areas across inference, serving, reliability, infrastructure and agents.</p>
+
+      <div class="core-index">
+        <div class="core-row">
+          <div class="core-head">
+            <span class="core-num">01</span>
+            <h3 class="core-title">LLM Inference &amp; Serving</h3>
+          </div>
+          <div class="core-body">
+            <p class="core-desc">Designing and benchmarking LLM serving systems across inference engines, scheduling, caching, GPU utilisation, routing and scaling.</p>
+            <p class="core-tech">vLLM · TGI · SGLang · KServe · LiteLLM · FastAPI</p>
+            <div class="core-flow">Request → Queue → Scheduler → Inference Engine → GPU → Streaming Response</div>
+          </div>
+        </div>
+
+        <div class="core-row">
+          <div class="core-head">
+            <span class="core-num">02</span>
+            <h3 class="core-title">Reliability &amp; Cost</h3>
+          </div>
+          <div class="core-body">
+            <p class="core-desc">Engineering around production limits and failure conditions — batching, prompt caching, adaptive rate limiting, TPM/RPM constraints, queues, quotas, backpressure and recovery.</p>
+            <div class="core-flow">Traffic → Rate Limit → Queue → Batch / Cache → Model</div>
+            <p class="core-sub-flow">Streaming state → persistence → recovery</p>
+          </div>
+        </div>
+
+        <div class="core-row">
+          <div class="core-head">
+            <span class="core-num">03</span>
+            <h3 class="core-title">GPU &amp; Kubernetes</h3>
+          </div>
+          <div class="core-body">
+            <p class="core-desc">Running AI workloads across CPU and CUDA/GPU infrastructure with Kubernetes, including resource scheduling and model-serving concerns.</p>
+            <p class="core-tech">Kubernetes · CUDA · GPU Workloads · CPU Workloads</p>
+          </div>
+        </div>
+
+        <div class="core-row">
+          <div class="core-head">
+            <span class="core-num">04</span>
+            <h3 class="core-title">Agent Systems</h3>
+          </div>
+          <div class="core-body">
+            <p class="core-desc">Building and operating tool-using and multi-agent systems with attention to governance, tracing, failures, permissions and production observability.</p>
+            <p class="core-tech">MCP · Multi-Agent · Bedrock · AgentCore · Strands</p>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Open Engineering -->
-    <section class="section" id="engineering">
+    <section class="section" id="open-engineering">
       <h2>Open Engineering</h2>
       <p class="section-intro">Implementation-level systems and experiments published on GitHub.</p>
 
@@ -154,7 +226,7 @@
           <div class="eng-body">
             <div class="eng-title">LLM Fine-Tuning Pipeline</div>
             <div class="eng-idea">Model adaptation across LLMs, VLMs and embeddings.</div>
-            <div class="eng-desc">Production-style fine-tuning workflows covering LoRA/QLoRA, DPO, VLM and embedding models, including adapter merging, inference and artifact portability.</div>
+            <div class="eng-desc">Fine-tuning workflows covering LoRA/QLoRA, DPO, VLM and embedding models, including adapter merging, inference and artifact portability.</div>
             <div class="eng-tech">LoRA · QLoRA · DPO · VLM · Embeddings</div>
           </div>
           <a class="eng-link" href="https://github.com/avivek-dwivedi/llm-finetuning-pipeline" rel="noopener">View source ↗</a>
@@ -165,7 +237,7 @@
           <div class="eng-body">
             <div class="eng-title">Hybrid RAG Evaluation Suite</div>
             <div class="eng-idea">Retrieval quality as a measurable system.</div>
-            <div class="eng-desc">End-to-end hybrid RAG evaluation harness using dense and sparse retrieval, reciprocal-rank fusion and RAG evaluation.</div>
+            <div class="eng-desc">Hybrid retrieval evaluation covering dense and sparse retrieval, rank fusion and RAG evaluation workflows.</div>
             <div class="eng-tech">Dense Retrieval · Sparse Retrieval · RRF · RAG Evaluation</div>
           </div>
           <a class="eng-link" href="https://github.com/avivek-dwivedi/hybrid-rag-eval-suite" rel="noopener">View source ↗</a>
@@ -175,7 +247,7 @@
           <span class="eng-num">04</span>
           <div class="eng-body">
             <div class="eng-title">Multi-Agent LLMOps Pipeline</div>
-            <div class="eng-idea">Operational workflows for multi-agent systems.</div>
+            <div class="eng-idea">Operational workflows for multi-agent AI systems.</div>
             <div class="eng-desc">Multi-agent engineering work focused on orchestration and operational AI workflows.</div>
           </div>
           <a class="eng-link" href="https://github.com/avivek-dwivedi/llmops-multiagent-pipeline" rel="noopener">View source ↗</a>
@@ -191,91 +263,46 @@
           <a class="eng-link" href="https://github.com/avivek-dwivedi/a2a-protocol-for-autogen-langgraph" rel="noopener">View source ↗</a>
         </div>
       </div>
+
+      <p class="more-github"><a href="https://github.com/avivek-dwivedi" rel="noopener">More on GitHub →</a></p>
     </section>
 
-    <!-- Engineering Writing -->
+    <!-- Engineering Notebook -->
     <section class="section" id="writing">
-      <h2>Engineering Writing</h2>
-      <p class="section-intro">Deep technical notes on the design, operation and failure modes of production AI systems.</p>
+      <h2>Engineering Notebook</h2>
+      <p class="section-intro">What I've published, what I'm testing now, and what I plan to investigate next.</p>
 
-      <div class="featured-writing">
-        <div class="featured-text">
-          <p class="system-label">FEATURED / LLM SYSTEMS</p>
-          <h3 class="featured-title"><a href="/articles/production-llm-serving.html">Designing Production LLM Serving Systems</a></h3>
-          <p class="featured-desc">What happens after <code>vllm serve</code> stops being enough? A systems-level walkthrough of GPU inference, request routing, queueing, KServe, autoscaling, observability and failure recovery.</p>
-          <p class="system-meta">vLLM · KServe · Kubernetes · GPU Inference</p>
-          <a class="btn btn-primary" href="/articles/production-llm-serving.html">Read article →</a>
+      <div id="writing-plan" class="notebook">
+        <!-- Static fallback (replaced by JS if fetch succeeds) -->
+        <div class="notebook-block">
+          <p class="notebook-label">Published</p>
+          <h3 class="notebook-title">Designing Production LLM Serving Systems</h3>
+          <p class="notebook-focus">vLLM · KServe · GPU serving · scaling · reliability</p>
+          <a class="notebook-link" href="/articles/production-llm-serving.html">Read →</a>
         </div>
 
-        <figure class="serving-mini" aria-label="Production LLM serving architecture">
-          <div class="mini-stack">
-            <div class="mini-box">Client</div>
-            <span class="arch-arrow">↓</span>
-            <div class="mini-box">Gateway</div>
-            <span class="arch-arrow">↓</span>
-            <div class="mini-box">Routing / KServe</div>
-            <span class="arch-arrow">↓</span>
-            <div class="mini-row">
-              <div class="mini-box small">vLLM</div>
-              <div class="mini-box small">vLLM</div>
-              <div class="mini-box small">vLLM</div>
-            </div>
-            <span class="arch-arrow">↓</span>
-            <div class="mini-row">
-              <div class="mini-box gpu">GPU</div>
-              <div class="mini-box gpu">GPU</div>
-              <div class="mini-box gpu">GPU</div>
-            </div>
-          </div>
-          <div class="mini-obs" aria-label="Observability">
-            <span class="mini-obs-label">Observability</span>
-          </div>
-        </figure>
-      </div>
+        <hr class="div">
 
-      <!-- Writing roadmap -->
-      <div class="roadmap">
-        <div class="roadmap-group">
-          <h3 class="roadmap-cat">LLM Systems</h3>
-          <div class="roadmap-item">
-            <div class="roadmap-title">LLM Inference Engineering: From Prompt to Token</div>
-            <div class="roadmap-sub">Prefill · Decode · KV Cache · Batching · GPU Memory</div>
-          </div>
-          <div class="roadmap-item">
-            <div class="roadmap-title">Reliable LLM Serving Under Failure</div>
-            <div class="roadmap-sub">OOM · Queue Pressure · Backpressure · Retries · Recovery</div>
-          </div>
+        <div class="notebook-block">
+          <p class="notebook-label">Now</p>
+          <h3 class="notebook-title">Inside LLM Inference: From Prefill to Decode</h3>
+          <p class="notebook-focus">Prefill · Decode · KV Cache · Batching · GPU Memory</p>
+          <p class="notebook-working">Studying how cache behaviour, scheduling and concurrency affect latency and throughput.</p>
         </div>
 
-        <div class="roadmap-group">
-          <h3 class="roadmap-cat">AI Infrastructure</h3>
-          <div class="roadmap-item">
-            <div class="roadmap-title">Building a Private LLMOps Platform on AWS</div>
-            <div class="roadmap-sub">Langfuse · OpenTelemetry · Traces · Evals · Production Debugging</div>
+        <hr class="div">
+
+        <div class="notebook-block">
+          <p class="notebook-label">Next</p>
+          <div class="notebook-next-item">
+            <h3 class="notebook-title">Building LLM APIs Under Production Limits</h3>
+            <p class="notebook-focus">Adaptive rate limiting · TPM/RPM · batching · prompt caching · streaming recovery</p>
           </div>
-          <div class="roadmap-item">
-            <div class="roadmap-title">Distributed Model Training</div>
-            <div class="roadmap-sub">PyTorch · FSDP · DeepSpeed · Ray · Checkpointing</div>
+          <div class="notebook-next-item">
+            <h3 class="notebook-title">Private LLMOps for Multi-Agent Systems</h3>
+            <p class="notebook-focus">OpenTelemetry · Langfuse · PostgreSQL · AWS · multi-agent observability</p>
           </div>
         </div>
-
-        <div class="roadmap-group">
-          <h3 class="roadmap-cat">Agent Systems</h3>
-          <div class="roadmap-item">
-            <div class="roadmap-title">AgentOps: Operating AI Agents Under Failure</div>
-            <div class="roadmap-sub">Tracing · Tool Failures · Retry Control · Idempotency · Evaluations</div>
-          </div>
-        </div>
-
-        <div class="roadmap-group">
-          <h3 class="roadmap-cat">Model Engineering</h3>
-          <div class="roadmap-item">
-            <div class="roadmap-title">Modern Model Adaptation</div>
-            <div class="roadmap-sub">Embeddings · LoRA · QLoRA · DPO · VLM · Multimodal Training</div>
-          </div>
-        </div>
-
-        <p class="roadmap-status">Planned</p>
       </div>
     </section>
 
@@ -284,8 +311,8 @@
       <h2>About</h2>
       <div class="about-block">
         <div class="about-text">
-          <p>I'm Avivek Dwivedi, an Applied AI Engineer working on production AI systems across multimodal applications, LLM infrastructure, retrieval and agent systems.</p>
-          <p>I use this site to document systems I've built, open engineering work and technical lessons from taking AI systems toward production.</p>
+          <p>I'm Avivek Dwivedi, an Applied AI Engineer working across computer vision, multimodal AI, LLM infrastructure and agent systems.</p>
+          <p>My work spans model training, inference, edge/cloud deployment, observability and production AI engineering. I use this site to document systems I've built, open engineering work and lessons from operating AI systems in practice.</p>
         </div>
         <div class="about-actions">
           <a class="btn" href="https://github.com/avivek-dwivedi" rel="noopener">GitHub ↗</a>
@@ -297,7 +324,7 @@
   <footer class="footer">
     <div class="shell">
       <div class="footer-name">Avivek Dwivedi</div>
-      <div>Applied AI Engineering</div>
+      <div>Applied AI Engineer</div>
       <div class="footer-links">
         <a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub ↗</a>
       </div>
