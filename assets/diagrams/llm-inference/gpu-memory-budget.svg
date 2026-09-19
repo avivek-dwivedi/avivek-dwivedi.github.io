@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 480" width="760" height="480" role="img" aria-labelledby="gmTitle gmDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="gmTitle">GPU memory budget under concurrency</title>
+  <desc id="gmDescription">A GPU memory rectangle split into model weights, KV cache, runtime/workspace and other allocations. A second panel shows how low concurrency has a small KV-cache footprint while high concurrency expands the KV-cache footprint, crowding available memory.</desc>
+  <desc id="gmDesc">GPU memory budget diagram showing model weights, KV cache, runtime workspace and other allocations, and how KV cache grows from low to high concurrency.</desc>
+
+  <style>
+    .frame { fill: #ffffff; stroke: #30363d; stroke-width: 1.5; rx: 6; ry: 6; }
+    .w  { fill: #ddf4ff; }
+    .kv { fill: #fff8c5; }
+    .rt { fill: #dafbe1; }
+    .ot { fill: #f6f8fa; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.06em; }
+    .head { font-size: 14px; fill: #1f2328; text-anchor: middle; font-weight: 700; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+  </style>
+
+  <text class="head" x="190" y="30">GPU memory (single snapshot)</text>
+
+  <rect class="frame" x="30" y="50" width="320" height="240"/>
+  <rect class="w"  x="40" y="60" width="300" height="70" stroke="#2f81f7" stroke-width="1"/>
+  <text class="t" x="190" y="99">Model Weights</text>
+  <rect class="kv" x="40" y="135" width="300" height="70" stroke="#d4a72c" stroke-width="1"/>
+  <text class="t" x="190" y="174">KV Cache</text>
+  <rect class="rt" x="40" y="210" width="300" height="36" stroke="#2da44e" stroke-width="1"/>
+  <text class="t" x="190" y="232">Runtime / Workspace</text>
+  <rect class="ot" x="40" y="247" width="300" height="36" stroke="#d0d7de" stroke-width="1"/>
+  <text class="t" x="190" y="269">Other allocations</text>
+  <text class="lbl" x="190" y="310">no fixed percentages — actual split is workload-dependent</text>
+
+  <line class="edge" x1="380" y1="20" x2="380" y2="460"/>
+
+  <!-- Low concurrency -->
+  <text class="head" x="570" y="40">Low concurrency</text>
+  <rect class="frame" x="450" y="60" width="240" height="120"/>
+  <rect class="w"  x="458" y="68" width="224" height="44" stroke="#2f81f7" stroke-width="1"/>
+  <text class="t" x="570" y="94">Weights</text>
+  <rect class="kv" x="458" y="116" width="70" height="58" stroke="#d4a72c" stroke-width="1"/>
+  <text class="t" x="493" y="149" style="font-size:10px">KV</text>
+  <text class="lbl" x="570" y="150">few active sequences</text>
+  <text class="lbl" x="570" y="200">small KV-cache footprint</text>
+
+  <!-- High concurrency -->
+  <text class="head" x="570" y="250">High concurrency</text>
+  <rect class="frame" x="450" y="270" width="240" height="170"/>
+  <rect class="w"  x="458" y="278" width="224" height="44" stroke="#2f81f7" stroke-width="1"/>
+  <text class="t" x="570" y="304">Weights</text>
+  <rect class="kv" x="458" y="326" width="224" height="96" stroke="#d4a72c" stroke-width="1"/>
+  <text class="t" x="570" y="376">KV Cache</text>
+  <text class="lbl" x="570" y="460">more active sequence state · larger footprint</text>
+  <text class="lbl" x="570" y="478">context length × concurrency = capacity pressure</text>
+</svg>

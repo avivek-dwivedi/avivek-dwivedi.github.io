@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320" width="760" height="320" role="img" aria-labelledby="lbTitle lbDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="lbTitle">Latency breakdown</title>
+  <desc id="lbDesc">A horizontal request timeline from request start through queue, prefill, first token, several intermediate tokens, to final token. TTFT spans queue + prefill + first token. ITL is the gap between streamed tokens. End-to-end latency spans the full request.</desc>
+
+  <style>
+    .req { fill: #f6f8fa; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .seg { fill: #ffffff; stroke: #d0d7de; stroke-width: 1; rx: 3; ry: 3; }
+    .seg-prefill { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 3; ry: 3; }
+    .seg-token { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 3; ry: 3; }
+    .seg-final { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 3; ry: 3; }
+    .t { font-size: 11px; fill: #1f2328; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.06em; }
+    .bracket { stroke: #59636e; stroke-width: 1.3; fill: none; }
+    .bracket-accent { stroke: #2f81f7; stroke-width: 1.3; fill: none; }
+    .bracket-warn { stroke: #d4a72c; stroke-width: 1.3; fill: none; }
+    .bracket-end { stroke: #2da44e; stroke-width: 1.3; fill: none; }
+  </style>
+
+  <!-- Request bar -->
+  <rect class="req" x="30" y="90" width="700" height="50"/>
+
+  <rect class="seg" x="40" y="100" width="60" height="30"/>
+  <text class="t" x="70" y="119">queue</text>
+
+  <rect class="seg-prefill" x="105" y="100" width="120" height="30"/>
+  <text class="t" x="165" y="119">prefill</text>
+
+  <rect class="seg-token" x="230" y="100" width="70" height="30"/>
+  <text class="t" x="265" y="119">token 1</text>
+
+  <rect class="seg-token" x="305" y="100" width="70" height="30"/>
+  <text class="t" x="340" y="119">token 2</text>
+
+  <rect class="seg-token" x="380" y="100" width="70" height="30"/>
+  <text class="t" x="415" y="119">token 3</text>
+
+  <rect class="seg-token" x="455" y="100" width="70" height="30"/>
+  <text class="t" x="490" y="119">token 4</text>
+
+  <rect class="seg-final" x="530" y="100" width="80" height="30"/>
+  <text class="t" x="570" y="119">final</text>
+
+  <text class="lbl" x="30" y="80">request start</text>
+  <text class="lbl" x="730" y="80">request end</text>
+
+  <!-- TTFT bracket -->
+  <path class="bracket-accent" d="M40,60 L40,52 L300,52 L300,60"/>
+  <text class="lbl" x="170" y="44" style="fill:#0a66c2; font-weight:600;">TTFT</text>
+
+  <!-- ITL bracket -->
+  <path class="bracket-warn" d="M305,170 L305,178 L375,178 L375,170"/>
+  <text class="lbl" x="340" y="195" style="fill:#9a6700; font-weight:600;">ITL</text>
+
+  <!-- End-to-end bracket -->
+  <path class="bracket-end" d="M40,210 L40,218 L610,218 L610,210"/>
+  <text class="lbl" x="325" y="235" style="fill:#1a7f37; font-weight:600;">End-to-end latency</text>
+
+  <text class="lbl" x="265" y="290">No timing values shown — shape only. Actual values depend on hardware, model and load.</text>
+</svg>

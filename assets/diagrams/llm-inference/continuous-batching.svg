@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" width="760" height="360" role="img" aria-labelledby="cbTitle cbDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="cbTitle">Continuous batching</title>
+  <desc id="cbDesc">Four scheduler iterations. Requests A, B, C, D start together. By iteration 3, C has finished and E joins. By iteration 4, A has finished and F joins. Completed sequences leave while new sequences enter the running batch.</desc>
+
+  <style>
+    .cell { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 4; ry: 4; }
+    .a { fill: #ddf4ff; stroke: #2f81f7; }
+    .b { fill: #fff8c5; stroke: #d4a72c; }
+    .c { fill: #dafbe1; stroke: #2da44e; }
+    .d { fill: #f6f8fa; stroke: #30363d; }
+    .e { fill: #ffebe9; stroke: #ff8182; }
+    .f { fill: #e6e6fa; stroke: #8957e5; }
+    .done { fill: #30363d; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; font-weight: 600; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.06em; }
+    .head { font-size: 13px; fill: #1f2328; text-anchor: start; font-weight: 700; }
+    .note { font-size: 11px; fill: #1f2328; text-anchor: start; }
+  </style>
+
+  <text class="head" x="30"  y="30">Iteration 1</text>
+  <text class="head" x="30"  y="120">Iteration 2</text>
+  <text class="head" x="30"  y="210">Iteration 3</text>
+  <text class="head" x="30"  y="300">Iteration 4</text>
+
+  <!-- Iteration 1 -->
+  <rect class="cell a" x="170" y="12" width="80" height="30"/><text class="t" x="210" y="32">A</text>
+  <rect class="cell b" x="260" y="12" width="80" height="30"/><text class="t" x="300" y="32">B</text>
+  <rect class="cell c" x="350" y="12" width="80" height="30"/><text class="t" x="390" y="32">C</text>
+  <rect class="cell d" x="440" y="12" width="80" height="30"/><text class="t" x="480" y="32">D</text>
+  <text class="note" x="540" y="32">batch starts</text>
+
+  <!-- Iteration 2 -->
+  <rect class="cell a" x="170" y="102" width="80" height="30"/><text class="t" x="210" y="122">A</text>
+  <rect class="cell b" x="260" y="102" width="80" height="30"/><text class="t" x="300" y="122">B</text>
+  <rect class="cell c" x="350" y="102" width="80" height="30"/><text class="t" x="390" y="122">C</text>
+  <rect class="cell d" x="440" y="102" width="80" height="30"/><text class="t" x="480" y="122">D</text>
+  <text class="note" x="540" y="122">all active</text>
+
+  <!-- Iteration 3: C done, E enters -->
+  <rect class="cell a" x="170" y="192" width="80" height="30"/><text class="t" x="210" y="212">A</text>
+  <rect class="cell b" x="260" y="192" width="80" height="30"/><text class="t" x="300" y="212">B</text>
+  <rect class="cell done" x="350" y="192" width="80" height="30"/><text class="t" x="390" y="212" style="fill:#fff">C ✓</text>
+  <rect class="cell d" x="440" y="192" width="80" height="30"/><text class="t" x="480" y="212">D</text>
+  <rect class="cell e" x="530" y="192" width="80" height="30"/><text class="t" x="570" y="212">E</text>
+  <text class="note" x="630" y="212">C leaves · E joins</text>
+
+  <!-- Iteration 4: A done, F enters -->
+  <rect class="cell done" x="170" y="282" width="80" height="30"/><text class="t" x="210" y="302" style="fill:#fff">A ✓</text>
+  <rect class="cell b" x="260" y="282" width="80" height="30"/><text class="t" x="300" y="302">B</text>
+  <rect class="cell d" x="350" y="282" width="80" height="30"/><text class="t" x="390" y="302">D</text>
+  <rect class="cell e" x="440" y="282" width="80" height="30"/><text class="t" x="480" y="302">E</text>
+  <rect class="cell f" x="530" y="282" width="80" height="30"/><text class="t" x="570" y="302">F</text>
+  <text class="note" x="630" y="302">A leaves · F joins</text>
+
+  <text class="lbl" x="380" y="345">completed sequences leave · new sequences enter between decode iterations</text>
+</svg>

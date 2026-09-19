@@ -8,10 +8,12 @@
     }
   ],
   "current": {
-    "title": "Inside LLM Inference: From Prefill to Decode",
+    "title": "LLM Inference Engineering: From Prompt to Token",
     "category": "LLM Inference",
     "focus": "Prefill, decode, KV cache, batching, GPU memory and inference scheduling",
-    "workingOn": "Studying how cache behaviour, scheduling and concurrency affect latency and throughput."
+    "url": "/articles/llm-inference-engineering.html",
+    "status": "draft",
+    "workingOn": "Article drafted. Experiment design defined; benchmark runs not yet executed."
   },
   "next": [
     {

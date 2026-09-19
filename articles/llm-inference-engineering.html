@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Inference Engineering: From Prompt to Token | Avivek Dwivedi</title>
+  <meta name="description" content="Prefill, decode, KV cache, batching, GPU memory and the system mechanics that determine latency and throughput in production LLM inference.">
+  <link rel="canonical" href="https://avivek-dwivedi.github.io/articles/llm-inference-engineering.html">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="LLM Inference Engineering: From Prompt to Token | Avivek Dwivedi">
+  <meta property="og:description" content="Prefill, decode, KV cache, batching, GPU memory and the system mechanics that determine latency and throughput in production LLM inference.">
+  <meta property="og:url" content="https://avivek-dwivedi.github.io/articles/llm-inference-engineering.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "LLM Inference Engineering: From Prompt to Token",
+    "description": "Prefill, decode, KV cache, batching, GPU memory and the system mechanics that determine latency and throughput.",
+    "author": { "@type": "Person", "name": "Avivek Dwivedi", "url": "https://avivek-dwivedi.github.io/" },
+    "publisher": { "@type": "Person", "name": "Avivek Dwivedi", "url": "https://avivek-dwivedi.github.io/" },
+    "mainEntityOfPage": { "@type": "WebPage", "@id": "https://avivek-dwivedi.github.io/articles/llm-inference-engineering.html" },
+    "articleSection": "LLM Systems",
+    "keywords": ["LLM inference", "prefill", "decode", "KV cache", "PagedAttention", "continuous batching", "vLLM", "GPU", "FlashAttention"],
+    "dateModified": "2026-09-19"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#article-main">Skip to content</a>
+
+  <nav class="nav" aria-label="Primary">
+    <span class="nav-brand"><a href="/">AVIVEK</a></span>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/#systems">Systems</a></li>
+      <li><a href="/#engineering">Engineering</a></li>
+      <li><a href="/#writing">Writing</a></li>
+      <li><a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <main id="article-main">
+    <div class="shell">
+      <div class="article-hero">
+        <a class="back-home" href="/">← Back to home</a>
+        <p class="eyebrow">LLM Systems</p>
+        <h1>LLM Inference Engineering: From Prompt to Token</h1>
+        <p class="subtitle">Prefill, decode, KV cache, batching, GPU memory and the system mechanics that determine latency and throughput.</p>
+        <div class="article-meta">
+          <span>Avivek Dwivedi</span>
+          <span class="dot">·</span>
+          <span class="tag tag-accent">Advanced</span>
+          <span class="dot">·</span>
+          <span>Updated Sep 2026</span>
+          <span class="dot">·</span>
+          <span>Draft</span>
+        </div>
+        <div class="meta" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <span class="tag">Prefill</span>
+          <span class="tag">Decode</span>
+          <span class="tag">KV Cache</span>
+          <span class="tag">Batching</span>
+          <span class="tag">GPU Memory</span>
+          <span class="tag">vLLM</span>
+        </div>
+        <p class="opening">A model can generate tokens quickly in an isolated test and still deliver poor interactive performance under production load. An LLM request is not one operation: the prompt first goes through prefill, which creates the attention state required for generation, and the model then enters an autoregressive decode loop, producing one new token at a time while reusing state from previous tokens. Once multiple sequences share a GPU, inference becomes a scheduling and memory-management problem as much as a model-compute problem. This article works from the request inward — prefill, KV cache, decode, batching, scheduling, GPU memory — and ends at the inference-engine boundary.</p>
+      </div>
+    </div>
+
+    <div class="article-shell">
+      <article class="article-body">
+
+        <h2 id="s1">01. The request lifecycle</h2>
+        <p>Before discussing performance, it helps to fix the path a single request takes through an inference engine. A prompt is not handed directly to the GPU. It is tokenized, scheduled, prefilled, and then decoded token by token. Each of those stages has different cost characteristics, and the stage that dominates latency changes with load.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-inference/request-lifecycle.svg" role="img" aria-label="LLM request lifecycle" style="width:100%; max-width:420px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 1 — Request lifecycle. The decode step loops back through KV cache as the model generates tokens.</figcaption>
+        </figure>
+
+        <p>Two phases do most of the work:</p>
+        <ul>
+          <li><strong>Prefill</strong> processes the existing prompt and produces the internal attention state required for future generation.</li>
+          <li><strong>Decode</strong> repeatedly generates subsequent tokens, where each iteration depends on the previously generated sequence state.</li>
+        </ul>
+
+        <div class="engineering-note">
+          <span class="callout-label">Mental Model</span>
+          <p>Prefill processes existing context. Decode repeatedly extends it. Treating "inference" as one monolithic operation hides the reason concurrency changes behavior so dramatically.</p>
+        </div>
+
+        <h2 id="s2">02. Prefill vs decode</h2>
+        <p>Prefill and decode have very different workload characteristics, and that difference is the root of most inference-engine behavior.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-inference/prefill-vs-decode.svg" role="img" aria-label="Prefill vs decode" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 2 — Prefill processes many prompt tokens together; decode generates tokens one at a time across sequential iterations.</figcaption>
+        </figure>
+
+        <h3>Prefill</h3>
+        <p>During prefill, the model processes all prompt tokens in a single forward pass. Because many tokens are processed at once, prefill can expose a large amount of parallel compute to the GPU. The cost of prefill scales with prompt length: a 4000-token prompt requires more prefill work than a 100-token prompt.</p>
+
+        <h3>Decode</h3>
+        <p>During decode, the model generates one token per iteration. Each new token depends on the state built from all previous tokens, so the loop is sequential by nature. Per-token decode cost does not scale with prompt length the way prefill does, but it scales with the number of tokens generated and with how many sequences are sharing the GPU.</p>
+
+        <p>It is common to hear prefill described as "compute bound" and decode as "memory bound" as if these were universal laws. They are useful tendencies, not absolutes. Prefill often exposes more parallel compute, while decode frequently becomes more sensitive to memory bandwidth, KV-cache access, and scheduling. Whether a given workload is actually bound by compute, memory bandwidth, or scheduling depends on the hardware, the model, the kernel implementation, and the batch composition at that moment. The honest engineering statement is that prefill and decode stress different resources, and a serving system has to manage both.</p>
+
+        <div class="engineering-note">
+          <span class="callout-label">Engineering Note</span>
+          <p>Prefill cost scales with prompt length. Decode cost scales with generation length. A request with a short prompt and a long output is decode-heavy; a request with a long prompt and a short output is prefill-heavy. The mix of requests in a batch determines what the GPU is actually bottlenecked on.</p>
+        </div>
+
+        <h2 id="s3">03. TTFT, TPOT, ITL and end-to-end latency</h2>
+        <p>Only after prefill and decode are understood do latency metrics become meaningful. These metrics answer different questions and are not interchangeable.</p>
+
+        <div class="metric-definition">
+          <div class="m-name">TTFT</div>
+          <div class="m-desc"><strong>Time to First Token.</strong> The latency from request arrival to the first generated token. Conceptually it includes queueing, request processing, prefill, and the first decode step. It is not "pure prefill time."</div>
+        </div>
+        <div class="metric-definition">
+          <div class="m-name">TPOT</div>
+          <div class="m-desc"><strong>Time per Output Token.</strong> A decode-oriented measurement representing the average time to produce each output token during generation.</div>
+        </div>
+        <div class="metric-definition">
+          <div class="m-name">ITL</div>
+          <div class="m-desc"><strong>Inter-token latency.</strong> The actual gap observed between streamed tokens. TPOT and ITL are related but not identical: ITL reflects what the client experiences between tokens, which can include scheduling and batching effects that an average TPOT hides.</div>
+        </div>
+        <div class="metric-definition">
+          <div class="m-name">E2E latency</div>
+          <div class="m-desc"><strong>End-to-end latency.</strong> Total time from request start to the final token.</div>
+        </div>
+        <div class="metric-definition">
+          <div class="m-name">Throughput</div>
+          <div class="m-desc">Useful inference work completed over time — requests/sec, output tokens/sec, or total tokens/sec. These measure different things and should be reported explicitly.</div>
+        </div>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-inference/latency-breakdown.svg" role="img" aria-label="Latency breakdown" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 3 — Latency breakdown. TTFT spans queue + prefill + first token; ITL is the gap between streamed tokens; end-to-end latency spans the full request.</figcaption>
+        </figure>
+
+        <div class="measurement-note">
+          <span class="callout-label">Measurement Note</span>
+          <p>High throughput with unacceptable TTFT is not necessarily a useful serving configuration. A server can generate many tokens/sec while making users wait seconds for the first token. The metric that matters depends on the workload: interactive generation is TTFT-sensitive; bulk completion is throughput-sensitive.</p>
+        </div>
+
+        <h2 id="s4">04. KV cache — what it actually stores</h2>
+        <p>The KV cache is one of the most frequently misunderstood parts of inference. It is not "a cache of the prompt" and it is not "a cache of the generated text." Transformer attention layers derive <strong>key</strong> and <strong>value</strong> representations from previous tokens. During autoregressive generation, those key/value tensors can be reused instead of recomputing them from scratch for every decode step.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-inference/kv-cache-reuse.svg" role="img" aria-label="Why KV cache exists" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 4 — Without reuse, each new token requires recomputing attention state for the whole sequence. With KV cache, historical K/V tensors are stored and reused; only the new token's representation is computed.</figcaption>
+        </figure>
+
+        <p>The trade-off is direct: the KV cache saves repeated attention-state computation but consumes memory. For a model with many layers, many attention heads, and a large hidden dimension, the accumulated K/V state for a long sequence can be substantial — often comparable to or larger than the model weights themselves once enough sequences are active.</p>
+
+        <div class="engineering-note">
+          <span class="callout-label">Engineering Note</span>
+          <p>KV cache stores attention key/value tensors, not text. It saves repeated computation at the cost of GPU memory. The more sequences are active and the longer their contexts, the more memory KV cache consumes.</p>
+        </div>
+
+        <h2 id="s5">05. GPU memory model</h2>
+        <p>To reason about concurrency, a serving engineer needs a workable model of GPU memory. A loaded inference process uses GPU memory for several things at once:</p>
+        <ul>
+          <li><strong>Model weights</strong> — approximately fixed once a model is loaded.</li>
+          <li><strong>KV cache</strong> — grows with the number of active sequences and their context lengths.</li>
+          <li><strong>Runtime / workspace</strong> — temporary buffers used during forward passes.</li>
+          <li><strong>Other allocations</strong> — CUDA context, framework overhead, activation buffers.</li>
+        </ul>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-inference/gpu-memory-budget.svg" role="img" aria-label="GPU memory budget under concurrency" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 5 — GPU memory budget. Weights stay roughly fixed; KV cache grows with active sequences and context length.</figcaption>
+        </figure>
+
+        <p>The critical production relationship is this: model weights remain approximately fixed for a loaded model, while sequence state grows with active workloads. More active sequences and longer contexts mean more KV-cache pressure. This is why context length is not only a model feature — under concurrency, it is a capacity-planning variable.</p>
+
+        <div class="engineering-note">
+          <span class="callout-label">Engineering Note</span>
+          <p>Context length is not only a model feature. Under concurrency, it is a capacity decision. Doubling the supported context length can more than double the KV-cache footprint per sequence, and that footprint multiplies across every active request.</p>
+        </div>
+
+        <h2 id="s6">06. PagedAttention</h2>
+        <p>The problem with naive KV-cache allocation is that sequence lengths are dynamic. In a real workload:</p>
+        <ul>
+          <li>Request A generates 20 tokens.</li>
+          <li>Request B generates 200.</li>
+          <li>Request C generates 5.</li>
+          <li>Request D continues for a long sequence.</li>
+        </ul>
+        <p>A serving system cannot efficiently assume all requests need identical contiguous memory growth. If each request is given a contiguous block sized for its worst case, memory is wasted on reserved-but-unused capacity. If blocks are sized for the average, long sequences overflow. This is the fragmentation and over-allocation problem.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-inference/paged-kv-memory.svg" role="img" aria-label="Paged or block-based KV memory" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 6 — Conceptual illustration. Left: contiguous allocation wastes reserved capacity. Right: block-based allocation assigns capacity as needed; logical sequences reference physical blocks non-contiguously.</figcaption>
+        </figure>
+
+        <p>The idea behind paged or block-based KV-cache management is to allocate KV memory in fixed-size blocks and let a logical sequence reference those blocks non-contiguously, growing as the sequence grows. vLLM's <strong>PagedAttention</strong> is one well-known implementation associated with this design<sup class="ref"><a href="#ref1">[1]</a></sup>.</p>
+
+        <p>This is an analogy-inspired, block-based approach to KV-memory management. It is not the case that operating-system virtual memory literally works inside the model. The mechanism is inspired by paging concepts but implemented specifically for KV-cache tensors by the inference engine.</p>
+
+        <h2 id="s7">07. Batching</h2>
+        <p>In traditional inference, batching is simple: take 32 images, run one forward pass, done. Autoregressive LLM generation is different. Requests have different prompt lengths, different output lengths, different arrival times, and different completion times.</p>
+        <p>If the engine uses a fixed batch — waiting to fill a batch of N, then running until all N finish — capacity is wasted. Short sequences that finish early sit idle while long sequences keep decoding. The batch slot occupied by a finished request cannot admit new work until the whole batch drains.</p>
+
+        <h2 id="s8">08. Continuous batching</h2>
+        <p>Continuous (or iteration-level) batching changes this. Instead of a batch boundary defined by all members finishing, the batch is re-evaluated every decode iteration. When a sequence finishes, its slot frees immediately and a new request can join the next iteration.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-inference/continuous-batching.svg" role="img" aria-label="Continuous batching" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 7 — Continuous batching. Completed sequences leave and new sequences enter between decode iterations.</figcaption>
+        </figure>
+
+        <p>This changes the role of the inference scheduler substantially. The scheduler is no longer picking a fixed batch once; it is making a decision every iteration about what runs, what waits, and how memory is allocated.</p>
+
+        <h2 id="s9">09. The scheduler</h2>
+        <p>An inference engine has to decide which token work runs during each scheduling iteration. The questions it balances include:</p>
+        <ul>
+          <li>Which requests enter the active batch, and which wait?</li>
+          <li>How much token work can fit in this iteration?</li>
+          <li>How much KV-cache capacity remains?</li>
+          <li>How does new prefill work interact with ongoing decode work?</li>
+          <li>How do fairness and throughput trade off against each other?</li>
+          <li>How do long prompts influence latency for other requests?</li>
+        </ul>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-inference/scheduler.svg" role="img" aria-label="Inference scheduler" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 8 — The scheduler balances prefill work, decode work, and memory/budget awareness to decide what reaches the GPU each iteration.</figcaption>
+        </figure>
+
+        <p>Different engines implement different scheduling policies. There is no single universal scheduler, and the specifics matter when interpreting benchmark results.</p>
+
+        <h2 id="s10">10. Chunked prefill</h2>
+        <p>One very large prefill can occupy significant compute time. While a long prompt is being processed, ongoing decode work for other sequences may have to wait or compete. Chunked prefill splits prompt processing into smaller chunks so the scheduler can interleave prefill chunks with decode iterations.</p>
+
+        <div class="flow">WITHOUT CHUNKING
+Large Prefill: ████████████████████
+ongoing decode waits / competes
+
+WITH CHUNKING
+Prefill chunk → Decode → Prefill chunk → Decode → Prefill chunk</div>
+
+        <p>This introduces trade-offs, not a free win. Chunking can improve decode responsiveness and reduce head-of-line blocking from large prompts, but it can also increase TTFT for the chunked request itself (the prefill is split across iterations) and adds scheduler complexity. Chunked prefill is not automatically better; it is a tool for managing the interaction between prefill and decode under mixed load.</p>
+
+        <h2 id="s11">11. Cache terminology — do not conflate these</h2>
+        <p>Several things in the inference ecosystem are called "cache," and conflating them causes real engineering confusion.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-inference/cache-types.svg" role="img" aria-label="Cache types and their layers" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 9 — Four cache types at different system layers.</figcaption>
+        </figure>
+
+        <ul>
+          <li><strong>KV cache</strong> — attention state for active token sequences. Lives inside the inference engine.</li>
+          <li><strong>Prefix cache</strong> — reuse of previously computed KV state when multiple requests share compatible prompt prefixes. Also an inference-layer mechanism.</li>
+          <li><strong>Provider prompt cache</strong> — a provider-specific mechanism for avoiding or reducing repeated processing of matching prompt prefixes. May have provider-specific token thresholds, cache durations, pricing, and matching rules. Lives at the API/provider layer.</li>
+          <li><strong>Semantic cache</strong> — application-level reuse based on semantic similarity of requests/responses. Lives at the application layer.</li>
+        </ul>
+        <p>These are different mechanisms at different layers. KV cache is not prefix cache; provider prompt cache is not semantic cache. A request that hits a semantic cache never reaches the inference engine at all; a request that hits a prefix cache skips prefill for the cached prefix but still decodes.</p>
+
+        <h2 id="s12">12. Inference optimization map</h2>
+        <p>There are many inference optimizations, and they do not all solve the same problem. Organizing them by the bottleneck they address is more useful than a flat list.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-inference/optimization-map.svg" role="img" aria-label="Inference optimization map" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 10 — Optimizations grouped by the bottleneck they target.</figcaption>
+        </figure>
+
+        <table class="article-table">
+          <thead><tr><th>Bottleneck</th><th>Optimizations</th></tr></thead>
+          <tbody>
+            <tr><td>Memory / KV management</td><td>KV-cache management, paged/block-based KV memory, quantization where relevant</td></tr>
+            <tr><td>Repeated prefix work</td><td>Prefix caching</td></tr>
+            <tr><td>Attention computation</td><td>FlashAttention, SageAttention / optimized kernels</td></tr>
+            <tr><td>Scheduling</td><td>Continuous batching, chunked prefill, scheduling policy</td></tr>
+            <tr><td>Decode cost</td><td>Speculative decoding</td></tr>
+            <tr><td>Model memory / compute</td><td>Weight quantization</td></tr>
+            <tr><td>Multi-GPU</td><td>Tensor parallelism, pipeline parallelism</td></tr>
+          </tbody>
+        </table>
+
+        <p>These optimizations do not compose into a single "turn everything on" knob. Enabling all of them is not guaranteed to improve performance, and some interact in non-obvious ways. The right set depends on the workload.</p>
+
+        <h2 id="s13">13. FlashAttention</h2>
+        <p>Attention performance is influenced not only by arithmetic operations but by data movement between levels of the GPU memory hierarchy. <strong>FlashAttention</strong> introduced an IO-aware attention algorithm designed to reduce expensive memory movement by using tiling and better exploitation of on-chip SRAM<sup class="ref"><a href="#ref2">[2]</a></sup>. The key insight for inference engineers is that GPU optimization is often about memory traffic as much as FLOPs. An attention kernel that does the same arithmetic but moves less data between HBM and SRAM can be faster even with identical FLOP counts.</p>
+
+        <h2 id="s14">14. SageAttention</h2>
+        <p>SageAttention is a research direction focused on efficient, quantized attention<sup class="ref"><a href="#ref3">[3]</a></sup>. It targets the same class of bottleneck as FlashAttention — attention memory traffic — but trades implementation complexity and numerical considerations for performance opportunities by operating on quantized representations.</p>
+        <p>It should be treated carefully. It is not universally faster than FlashAttention in all configurations, it is not a drop-in replacement in every stack, and production readiness depends on hardware, model, runtime, and kernel support. Quantized attention introduces accuracy considerations that depend on the quantization scheme and the model. Where precise claims are made, they should be tied to the relevant primary paper and the specific experimental context, not presented as universal.</p>
+
+        <div class="research-note">
+          <span class="callout-label">Research Note</span>
+          <p>SageAttention is presented here as an optimization direction for attention memory traffic, studied as part of inference optimization. Whether it helps a specific deployment depends on kernel support, model, hardware, and accuracy requirements. It is not stated as proven production usage.</p>
+        </div>
+
+        <h2 id="s15">15. Speculative decoding</h2>
+        <p>In normal decoding, a large target model produces one (or a few) tokens per step. Speculative decoding uses a smaller or faster draft mechanism to propose multiple candidate tokens, which the target model then verifies in a single forward pass. Accepted tokens reduce the effective number of expensive target iterations.</p>
+        <p>Speculative decoding does not always improve latency. Its benefit depends on draft quality (how often the target accepts the draft), verification overhead, hardware, batch size, and the serving workload. At high batch size, the GPU is already busy with many sequences, and the speculative overhead may not pay off. Whether it helps is workload-dependent.</p>
+
+        <h2 id="s16">16. Multi-GPU — concepts only</h2>
+        <p>Two concepts show up when a model does not fit on one GPU or when a workload benefits from distributed execution:</p>
+        <ul>
+          <li><strong>Tensor parallelism</strong> — splits computation for model layers across GPUs, so a single layer's matmuls run in parallel on multiple devices.</li>
+          <li><strong>Pipeline parallelism</strong> — assigns different groups of layers (stages) to different devices, so activations flow through stages like a pipeline.</li>
+        </ul>
+        <p>Both introduce communication overhead. Multi-GPU does not automatically mean proportionally lower latency; splitting a model across N GPUs does not yield 1/N latency. Detailed distributed serving belongs to a later article — this one stays at the single-engine boundary.</p>
+
+        <h2 id="s17">17. Where vLLM, TGI and SGLang fit</h2>
+        <p>vLLM, TGI, and SGLang are inference engines or serving runtimes. They sit between a model and the GPU, and implement different combinations of scheduling, batching, memory management, distributed execution, kernel integration, caching, and API serving.</p>
+        <div class="flow">Model
+  ↓
+Inference Engine
+  ├─ vLLM
+  ├─ TGI
+  └─ SGLang
+  ↓
+GPU</div>
+        <p>This article does not perform a full vLLM vs TGI vs SGLang benchmark — that belongs to the serving article. For the experiments here, the design uses a single engine, vLLM, to control variables.</p>
+
+        <h2 id="s18">18. Starting a local inference server</h2>
+        <div class="code-block">
+          <span class="code-caption">Illustrative command — verify flags against the installed vLLM version</span>
+<pre><code># Start a vLLM OpenAI-compatible server (placeholder model name)
+vllm serve MODEL_NAME \
+  --dtype auto \
+  --max-model-len 8192</code></pre>
+        </div>
+        <p>Do not hardcode a model unless the experiment environment actually uses one. The flag set should be verified against the installed vLLM version, since flags change across releases.</p>
+
+        <h2 id="s19">19. A small TTFT streaming client</h2>
+        <p>The following Python snippet measures approximate first-token latency from a streaming OpenAI-compatible endpoint. It is useful for understanding the metric, not as a primary benchmark harness.</p>
+        <div class="code-block">
+          <span class="code-caption">ttft_client.py — illustrative measurement, not the benchmark harness</span>
+<pre><code>import time
+from openai import OpenAI
+
+client = OpenAI(base_url="http://127.0.0.1:8000/v1", api_key="EMPTY")
+
+prompt = "Explain KV cache in three sentences."
+start = time.perf_counter()
+first_token_time = None
+
+stream = client.completions.create(
+    model="MODEL_NAME",
+    prompt=prompt,
+    max_tokens=64,
+    stream=True,
+)
+
+for chunk in stream:
+    text = chunk.choices[0].text
+    if text and first_token_time is None:
+        first_token_time = time.perf_counter()
+    print(text, end="", flush=True)
+
+end = time.perf_counter()
+
+print()
+print(f"TTFT: {first_token_time - start:.4f}s")
+print(f"End-to-end: {end - start:.4f}s")</code></pre>
+        </div>
+
+        <h2 id="s20">20. Benchmark approach</h2>
+        <p>The experiment design keeps variables fixed and varies one dimension at a time. The primary question: how does increasing request load (concurrency) change TTFT, TPOT/ITL, throughput, GPU memory, and GPU utilization?</p>
+        <ul>
+          <li>One fixed inference engine (vLLM).</li>
+          <li>One fixed model.</li>
+          <li>One fixed hardware setup.</li>
+          <li>Control as many variables as practical.</li>
+          <li>Do not compare engines in this first benchmark.</li>
+        </ul>
+
+        <div class="measurement-note">
+          <span class="callout-label">Measurement Note</span>
+          <p>This is a reproducible experiment design, not a set of measured results. No benchmark numbers are claimed in this article. When real results are collected, they will be added with full environment metadata and raw artifacts.</p>
+        </div>
+
+        <h3>Experiment A — Request load</h3>
+        <div class="experiment-design">
+          <p class="exp-goal"><strong>Goal:</strong> Observe how TTFT, TPOT/ITL, throughput, GPU memory and GPU utilization change as concurrency increases.</p>
+          <p class="exp-label">Concurrency levels</p>
+          <ul><li>1, 4, 8, 16, 32 (add 64 only if hardware safely supports it)</li></ul>
+          <p class="exp-label">Hold approximately constant</p>
+          <ul><li>model · dtype · input-length distribution · output-length distribution · hardware · software versions</li></ul>
+          <p class="exp-label">Measure</p>
+          <ul>
+            <li>TTFT p50, p95</li>
+            <li>TPOT p50, p95</li>
+            <li>ITL (if available)</li>
+            <li>requests/sec · output tokens/sec · total tokens/sec (if available)</li>
+            <li>GPU memory · GPU utilization</li>
+            <li>KV-cache utilization (if the runtime exposes it)</li>
+          </ul>
+        </div>
+
+        <h3>Experiment B — Prompt length</h3>
+        <div class="experiment-design">
+          <p class="exp-goal"><strong>Goal:</strong> Observe how increasing prefill work affects the request, holding output length roughly constant and concurrency fixed.</p>
+          <p class="exp-label">Prompt sizes</p>
+          <ul><li>256, 1024, 4096, 8192 (only if supported by model and hardware)</li></ul>
+          <p class="exp-label">Measure</p>
+          <ul><li>TTFT · end-to-end latency · GPU memory · throughput</li></ul>
+        </div>
+
+        <h3>Optional Experiment C — Cache pressure</h3>
+        <div class="experiment-design">
+          <p class="exp-goal"><strong>Goal:</strong> Increase combinations of active sequences and context length to observe KV-cache pressure.</p>
+          <p class="exp-label">Observe</p>
+          <ul><li>KV-cache utilization · GPU memory · TTFT · throughput</li></ul>
+          <p class="exp-label">Safety</p>
+          <ul><li>Do not intentionally crash hardware. Do not create destructive tests. Only include if measurements can be collected reliably.</li></ul>
+        </div>
+
+        <h2 id="s21">21. Using vLLM benchmark tooling</h2>
+        <p>Prefer official vLLM benchmark tooling over a custom harness. The current CLI is <code>vllm bench serve</code><sup class="ref"><a href="#ref4">[4]</a></sup>. Flag syntax changes across versions — verify against the installed version's <code>--help</code> before running.</p>
+        <div class="code-block">
+          <span class="code-caption">Illustrative — verify against installed vLLM version</span>
+<pre><code>vllm bench serve \
+  --backend vllm \
+  --model MODEL_NAME \
+  --dataset-name random \
+  --random-input-len 1024 \
+  --random-output-len 128 \
+  --num-prompts 200 \
+  --request-rate 10 \
+  --save-result \
+  --result-dir ./results</code></pre>
+        </div>
+
+        <h2 id="s22">22. GPU observation with nvidia-smi</h2>
+        <div class="code-block">
+<pre><code># Snapshot GPU utilization and memory
+nvidia-smi
+
+# Loop for coarse observation during a run
+nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv -l 1</code></pre>
+        </div>
+        <p><code>nvidia-smi</code> GPU utilization is a coarse signal. It reports the fraction of time the GPU had at least one kernel running, not how busy the GPU is in any deeper sense. A memory-bandwidth-bound kernel can report high utilization while delivering poor throughput. nvidia-smi alone is not enough for inference diagnosis; use it alongside the engine's own metrics.</p>
+
+        <h2 id="s23">23. Saturation analysis — the general pattern</h2>
+        <p>As load increases, a serving system tends to follow a general pattern (written here as a systems tendency, not a claim about the local benchmark):</p>
+        <ul>
+          <li>At low request load, the GPU may not have enough parallel work, so utilization is low and batching opportunities are limited.</li>
+          <li>As load increases, batching improves and throughput may rise.</li>
+          <li>Eventually serving capacity becomes constrained — by KV-cache capacity, GPU memory, compute, or scheduler limits.</li>
+          <li>Queueing increases, and TTFT may rise rapidly.</li>
+        </ul>
+        <p>This is a general systems pattern. Whether the local benchmark follows it must be established by measurement, not assumed.</p>
+
+        <h2 id="s24">24. GPU utilization is not the whole story</h2>
+        <p>GPU utilization alone does not tell you whether an LLM inference system is healthy. A system can show high GPU utilization and still have poor TTFT, poor throughput, or both. Possible bottlenecks that utilization hides include:</p>
+        <ul>
+          <li>insufficient batching (GPU busy with small batches)</li>
+          <li>scheduler limits</li>
+          <li>memory-bandwidth pressure</li>
+          <li>KV-cache capacity</li>
+          <li>long prefills blocking decode</li>
+          <li>queueing</li>
+          <li>CPU/tokenization overhead</li>
+          <li>communication overhead in distributed execution</li>
+        </ul>
+        <p>Examine a set of metrics together: TTFT, TPOT, ITL, queue depth, throughput, GPU memory, GPU utilization, and KV-cache metrics. No single number is sufficient.</p>
+
+        <h2 id="s25">25. Inference-level failure modes</h2>
+        <p>Scoped to the inference engine only — API retries, rate limits, circuit breakers, quotas, and provider failover belong to future reliability articles.</p>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 1</span>GPU OOM</p>
+          <h4>Possible contributors</h4>
+          <ul><li>model memory · excessive active KV state · overly long contexts · excessive concurrency · runtime configuration</li></ul>
+          <h4>Responses</h4>
+          <ul><li>admission limits · context-length policy · quantization · tensor parallelism · capacity planning</li></ul>
+          <p style="font-size:13px; color:var(--text-mute); margin:8px 0 0;">No single mitigation always fixes OOM — the response depends on which resource is the binding constraint.</p>
+        </div>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 2</span>KV-cache pressure</p>
+          <p style="font-size:14px;">Active sequence state grows until the engine cannot admit new work or must evict. Manifests as rising TTFT, reduced concurrency headroom, or rejection of new requests. Responses: admission control, context limits, and understanding that capacity is set by the interaction of concurrency and context length.</p>
+        </div>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 3</span>Long prompt / prefill interference</p>
+          <p style="font-size:14px;">A very long prefill can occupy compute and delay decode for other sequences — a head-of-line effect at the iteration level. Responses: chunked prefill, prefill scheduling policy, and admission limits on prompt length.</p>
+        </div>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 4</span>Poor batching / low utilization</p>
+          <p style="font-size:14px;">GPU underutilized despite available work, often due to scheduler limits, low concurrency, or request shapes that do not batch well. Not an OOM, but a capacity failure of a different kind: the GPU is available but the system cannot fill it.</p>
+        </div>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 5</span>Context-length rejection</p>
+          <p style="font-size:14px;">Requests exceeding the configured <code>max-model-len</code> are rejected. This is correct behavior, not a bug — but it must be matched to the workload and surfaced clearly to callers.</p>
+        </div>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure 6</span>Distributed communication failure</p>
+          <p style="font-size:14px;">With tensor or pipeline parallelism, a communication error across ranks can impact the entire request group. Blast radius is wider than single-replica serving. Detailed distributed failure handling belongs to a later article.</p>
+        </div>
+
+        <h2 id="s26">26. The system boundary</h2>
+        <div class="system-boundary">
+          <span class="callout-label">System Boundary</span>
+          <p>This article ends at the inference-engine layer. Routing, replicas, autoscaling, API reliability, rate limiting, retries, and guardrails belong to the serving layer and are covered in <a href="/articles/production-llm-serving.html">Designing Production LLM Serving Systems</a>.</p>
+        </div>
+
+        <p>An inference server's useful capacity is not the number of requests it can accept. It is how much work it can sustain while meeting latency and memory objectives. The inference engine balances GPU compute, memory and KV-cache capacity, and scheduler time — and the right balance is what benchmarking is meant to find.</p>
+
+        <div class="article-end">
+          <div class="next-article">
+            <p class="label">Next system layer</p>
+            <p class="title"><a href="/articles/production-llm-serving.html">Designing Production LLM Serving Systems</a></p>
+            <p class="soon">How vLLM, TGI and SGLang fit into a production serving architecture with routing, GPU workers, KServe and autoscaling.</p>
+          </div>
+        </div>
+
+        <h2 id="refs">References</h2>
+        <div class="references">
+          <ol>
+            <li id="ref1">Kwon, W. et al. <em>Efficient Memory Management for Large Language Model Serving with PagedAttention</em>. SOSP 2023. <a href="https://arxiv.org/abs/2309.06180" rel="noopener">arXiv:2309.06180</a></li>
+            <li id="ref2">Dao, T. et al. <em>FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness</em>. NeurIPS 2022. <a href="https://arxiv.org/abs/2205.14135" rel="noopener">arXiv:2205.14135</a></li>
+            <li id="ref3">Zhang, J. et al. <em>SageAttention: Accurate 8-Bit Attention for Plug-and-play Inference Acceleration</em>. 2024. <a href="https://arxiv.org/abs/2410.02367" rel="noopener">arXiv:2410.02367</a></li>
+            <li id="ref4">vLLM Project. <em>vLLM Benchmark CLI</em>. <a href="https://docs.vllm.ai/en/latest/benchmarking/cli.html" rel="noopener">docs.vllm.ai/benchmarking/cli</a></li>
+          </ol>
+        </div>
+
+      </article>
+
+      <aside class="toc" aria-label="Table of contents">
+        <button class="toc-toggle" type="button" aria-expanded="true">On this page</button>
+        <div class="toc-list">
+          <h2>Contents</h2>
+          <ol>
+            <li><a href="#s1" data-toc="s1">01. Request lifecycle</a></li>
+            <li><a href="#s2" data-toc="s2">02. Prefill vs decode</a></li>
+            <li><a href="#s3" data-toc="s3">03. TTFT, TPOT, ITL</a></li>
+            <li><a href="#s4" data-toc="s4">04. KV cache</a></li>
+            <li><a href="#s5" data-toc="s5">05. GPU memory model</a></li>
+            <li><a href="#s6" data-toc="s6">06. PagedAttention</a></li>
+            <li><a href="#s7" data-toc="s7">07. Batching</a></li>
+            <li><a href="#s8" data-toc="s8">08. Continuous batching</a></li>
+            <li><a href="#s9" data-toc="s9">09. The scheduler</a></li>
+            <li><a href="#s10" data-toc="s10">10. Chunked prefill</a></li>
+            <li><a href="#s11" data-toc="s11">11. Cache terminology</a></li>
+            <li><a href="#s12" data-toc="s12">12. Optimization map</a></li>
+            <li><a href="#s13" data-toc="s13">13. FlashAttention</a></li>
+            <li><a href="#s14" data-toc="s14">14. SageAttention</a></li>
+            <li><a href="#s15" data-toc="s15">15. Speculative decoding</a></li>
+            <li><a href="#s16" data-toc="s16">16. Multi-GPU</a></li>
+            <li><a href="#s17" data-toc="s17">17. vLLM, TGI, SGLang</a></li>
+            <li><a href="#s18" data-toc="s18">18. Local server</a></li>
+            <li><a href="#s19" data-toc="s19">19. TTFT client</a></li>
+            <li><a href="#s20" data-toc="s20">20. Benchmark approach</a></li>
+            <li><a href="#s21" data-toc="s21">21. vLLM bench tooling</a></li>
+            <li><a href="#s22" data-toc="s22">22. nvidia-smi</a></li>
+            <li><a href="#s23" data-toc="s23">23. Saturation analysis</a></li>
+            <li><a href="#s24" data-toc="s24">24. GPU utilization limits</a></li>
+            <li><a href="#s25" data-toc="s25">25. Failure modes</a></li>
+            <li><a href="#s26" data-toc="s26">26. System boundary</a></li>
+          </ol>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="shell">
+      <div class="footer-name">Avivek Dwivedi</div>
+      <div>Applied AI Engineer</div>
+      <div class="footer-links">
+        <a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub ↗</a>
+      </div>
+      <div style="margin-top:12px;">&copy; <span id="year">2026</span> Avivek Dwivedi</div>
+    </div>
+  </footer>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>

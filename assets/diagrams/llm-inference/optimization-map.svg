@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 520" width="760" height="520" role="img" aria-labelledby="omTitle omDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="omTitle">LLM inference optimization map</title>
+  <desc id="omDesc">LLM inference at the center, with branches to the bottlenecks they address: memory and KV management, attention computation, scheduling, repeated prefix work, decode cost, and scale across multiple GPUs.</desc>
+
+  <style>
+    .center { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1.5; rx: 8; ry: 8; }
+    .branch { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .leaf { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1; rx: 4; ry: 4; }
+    .t { font-size: 13px; fill: #1f2328; text-anchor: middle; font-weight: 600; }
+    .ta { font-size: 14px; fill: #0a66c2; text-anchor: middle; font-weight: 700; }
+    .lbl { font-size: 11px; fill: #59636e; text-anchor: middle; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+  </style>
+
+  <rect class="center" x="290" y="230" width="180" height="56"/>
+  <text class="ta" x="380" y="264">LLM INFERENCE</text>
+
+  <!-- Memory branch (left top) -->
+  <line class="edge" x1="320" y1="230" x2="150" y2="170"/>
+  <rect class="branch" x="80" y="140" width="140" height="36"/>
+  <text class="t" x="150" y="163">Memory</text>
+  <rect class="leaf" x="20"  y="60" width="120" height="28"/><text class="lbl" x="80" y="78">KV Cache</text>
+  <rect class="leaf" x="20"  y="94" width="120" height="28"/><text class="lbl" x="80" y="112">Paged KV</text>
+  <rect class="leaf" x="20"  y="128" width="120" height="28"/><text class="lbl" x="80" y="146">Quantization</text>
+  <line class="edge" x1="80" y1="140" x2="120" y2="120"/>
+
+  <!-- Attention branch (top) -->
+  <line class="edge" x1="380" y1="230" x2="380" y2="190"/>
+  <rect class="branch" x="310" y="150" width="140" height="36"/>
+  <text class="t" x="380" y="173">Attention</text>
+  <rect class="leaf" x="270" y="80" width="140" height="28"/><text class="lbl" x="340" y="98">FlashAttention</text>
+  <rect class="leaf" x="420" y="80" width="180" height="28"/><text class="lbl" x="510" y="98">SageAttention / kernels</text>
+  <line class="edge" x1="340" y1="108" x2="340" y2="150"/>
+  <line class="edge" x1="510" y1="108" x2="420" y2="150"/>
+
+  <!-- Scheduling branch (right top) -->
+  <line class="edge" x1="440" y1="230" x2="610" y2="170"/>
+  <rect class="branch" x="540" y="140" width="160" height="36"/>
+  <text class="t" x="620" y="163">Scheduling</text>
+  <rect class="leaf" x="560" y="60" width="150" height="28"/><text class="lbl" x="635" y="78">Continuous Batching</text>
+  <rect class="leaf" x="560" y="94" width="150" height="28"/><text class="lbl" x="635" y="112">Chunked Prefill</text>
+  <line class="edge" x1="635" y1="122" x2="635" y2="140"/>
+
+  <!-- Repeated Prefix branch (left bottom) -->
+  <line class="edge" x1="320" y1="286" x2="150" y2="350"/>
+  <rect class="branch" x="70" y="340" width="160" height="36"/>
+  <text class="t" x="150" y="363">Repeated Prefix</text>
+  <rect class="leaf" x="80" y="400" width="140" height="28"/><text class="lbl" x="150" y="418">Prefix Caching</text>
+  <line class="edge" x1="150" y1="376" x2="150" y2="400"/>
+
+  <!-- Decode branch (bottom) -->
+  <line class="edge" x1="380" y1="286" x2="380" y2="340"/>
+  <rect class="branch" x="310" y="340" width="140" height="36"/>
+  <text class="t" x="380" y="363">Decode Cost</text>
+  <rect class="leaf" x="310" y="400" width="140" height="28"/><text class="lbl" x="380" y="418">Speculative Decoding</text>
+  <line class="edge" x1="380" y1="376" x2="380" y2="400"/>
+
+  <!-- Scale branch (right bottom) -->
+  <line class="edge" x1="440" y1="286" x2="610" y2="350"/>
+  <rect class="branch" x="540" y="340" width="160" height="36"/>
+  <text class="t" x="620" y="363">Scale</text>
+  <rect class="leaf" x="540" y="400" width="150" height="28"/><text class="lbl" x="615" y="418">Tensor Parallel</text>
+  <rect class="leaf" x="540" y="434" width="150" height="28"/><text class="lbl" x="615" y="452">Pipeline Parallel</text>
+  <line class="edge" x1="615" y1="376" x2="615" y2="400"/>
+
+  <text class="lbl" x="380" y="500">different optimizations target different bottlenecks — enabling all is not always better</text>
+</svg>

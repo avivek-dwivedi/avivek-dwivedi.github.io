@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" width="760" height="360" role="img" aria-labelledby="pdTitle pdDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="pdTitle">Prefill vs Decode</title>
+  <desc id="pdDesc">Two timelines. Prefill processes many prompt tokens together in one pass. Decode generates tokens one at a time across sequential iterations.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 4; ry: 4; }
+    .prefill-box { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 4; ry: 4; }
+    .decode-box { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 4; ry: 4; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .head { font-size: 14px; fill: #1f2328; text-anchor: middle; font-weight: 700; letter-spacing: 0.04em; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.06em; text-transform: uppercase; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+  </style>
+
+  <!-- Prefill timeline -->
+  <text class="head" x="190" y="30">PREFILL</text>
+  <text class="lbl" x="190" y="50">Prompt processing</text>
+  <g>
+    <rect class="prefill-box" x="20"  y="70" width="40" height="30"/>
+    <text class="t" x="40"  y="89">t1</text>
+    <rect class="prefill-box" x="65"  y="70" width="40" height="30"/>
+    <text class="t" x="85"  y="89">t2</text>
+    <rect class="prefill-box" x="110" y="70" width="40" height="30"/>
+    <text class="t" x="130" y="89">t3</text>
+    <rect class="prefill-box" x="155" y="70" width="40" height="30"/>
+    <text class="t" x="175" y="89">t4</text>
+    <rect class="prefill-box" x="200" y="70" width="40" height="30"/>
+    <text class="t" x="220" y="89">t5</text>
+    <text class="lbl" x="270" y="89">... tn</text>
+  </g>
+  <text class="lbl" x="150" y="125">many input tokens processed together</text>
+
+  <!-- Decode timeline -->
+  <text class="head" x="570" y="30">DECODE</text>
+  <text class="lbl" x="570" y="50">Generation</text>
+  <g>
+    <rect class="decode-box" x="430" y="70" width="60" height="30"/>
+    <text class="t" x="460" y="89">n+1</text>
+    <line class="edge" x1="490" y1="85" x2="510" y2="85"/>
+    <polygon class="edge" points="506,81 514,85 506,89" fill="#59636e"/>
+    <rect class="decode-box" x="515" y="70" width="60" height="30"/>
+    <text class="t" x="545" y="89">n+2</text>
+    <line class="edge" x1="575" y1="85" x2="595" y2="85"/>
+    <polygon class="edge" points="591,81 599,85 591,89" fill="#59636e"/>
+    <rect class="decode-box" x="600" y="70" width="60" height="30"/>
+    <text class="t" x="630" y="89">n+3</text>
+    <text class="lbl" x="700" y="89">...</text>
+  </g>
+  <text class="lbl" x="570" y="125">sequential generation iterations</text>
+
+  <!-- Lower comparison -->
+  <line class="edge" x1="40" y1="170" x2="720" y2="170"/>
+
+  <text class="head" x="190" y="205">Prefill</text>
+  <text class="lbl" x="190" y="228">processes existing prompt</text>
+  <text class="lbl" x="190" y="248">more parallel compute exposed</text>
+  <text class="lbl" x="190" y="268">cost scales with prompt length</text>
+
+  <text class="head" x="570" y="205">Decode</text>
+  <text class="lbl" x="570" y="228">repeatedly extends sequence</text>
+  <text class="lbl" x="570" y="248">each step depends on prior state</text>
+  <text class="lbl" x="570" y="268">cost scales with generation length</text>
+
+  <line class="edge" x1="380" y1="180" x2="380" y2="290"/>
+</svg>

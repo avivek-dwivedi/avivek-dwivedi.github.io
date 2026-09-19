@@ -855,6 +855,129 @@ p code, li code {
 }
 
 /* ============================================================
+   Article v2 — reusable engineering callouts
+   ============================================================ */
+.engineering-note {
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  background: var(--bg-soft);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin: 0 0 20px;
+}
+.engineering-note .callout-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent-text);
+  margin-bottom: 6px;
+}
+.research-note {
+  border-left-color: #8957e5;
+}
+.research-note .callout-label { color: #8957e5; }
+@media (prefers-color-scheme: dark) {
+  .research-note .callout-label { color: #bc8cff; }
+}
+.measurement-note {
+  border-left-color: var(--warn-border);
+  background: var(--warn-bg);
+}
+.measurement-note .callout-label { color: #9a6700; }
+@media (prefers-color-scheme: dark) {
+  .measurement-note .callout-label { color: #d4a72c; }
+}
+.system-boundary {
+  border-left-color: #1f6feb;
+  background: var(--bg-soft);
+}
+.system-boundary .callout-label { color: #1f6feb; }
+.callout-label { margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
+.article-callout p:last-child, .engineering-note p:last-child, .research-note p:last-child, .measurement-note p:last-child, .system-boundary p:last-child { margin-bottom: 0; }
+
+/* Metric definitions */
+.metric-definition {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-soft);
+  font-size: 14px;
+}
+.metric-definition:last-child { border-bottom: 1px solid var(--border-soft); }
+.metric-definition .m-name { font-weight: 600; color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+.metric-definition .m-desc { color: var(--text-soft); }
+@media (max-width: 540px) { .metric-definition { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Figure + caption */
+.figure {
+  margin: 0 0 20px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--bg);
+  overflow-x: auto;
+}
+.figure-caption {
+  font-size: 12px;
+  color: var(--text-mute);
+  margin-top: 10px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.code-caption {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-mute);
+  padding: 8px 16px 0;
+}
+
+/* Experiment design block */
+.experiment-design {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin: 0 0 20px;
+  background: var(--bg);
+}
+.experiment-design .exp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.experiment-design h3 { margin: 0; font-size: 16px; }
+.experiment-design .exp-goal { font-size: 14px; color: var(--text-soft); margin: 0 0 10px; }
+.experiment-design .exp-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-mute); margin: 8px 0 4px;
+}
+.experiment-design ul { margin: 0; padding-left: 20px; }
+.experiment-design li { font-size: 14px; color: var(--text-soft); margin: 2px 0; }
+
+/* Inline reference markers */
+sup.ref a {
+  color: var(--accent-text);
+  font-size: 0.75em;
+  font-weight: 600;
+  text-decoration: none;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+sup.ref a:hover { text-decoration: underline; }
+
+/* References list */
+.references { font-size: 13px; color: var(--text-soft); }
+.references ol { padding-left: 22px; margin: 0; }
+.references li { margin: 6px 0; }
+.references a { color: var(--accent-text); word-break: break-all; }
+
+/* ============================================================
    Homepage v2 — Products & Systems narrative
    ============================================================ */
 
