@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 380" width="680" height="380" role="img" aria-labelledby="rlTitle rlDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="rlTitle">Routing layers in production LLM serving</title>
+  <desc id="rlDesc">Four distinct routing layers: gateway routing decides which API or service, model routing decides which model or runtime, replica routing decides which worker, and inference scheduling decides when the request runs on the GPU. These are not the same thing.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .gw { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 6; ry: 6; }
+    .mr { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 6; ry: 6; }
+    .rr { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 6; ry: 6; }
+    .is { fill: #f6f8fa; stroke: #8957e5; stroke-width: 1; rx: 6; ry: 6; }
+    .t { font-size: 13px; fill: #1f2328; text-anchor: middle; font-weight: 600; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.06em; }
+    .edge { stroke: #59636e; stroke-width: 1.3; fill: none; }
+  </style>
+
+  <rect class="gw" x="200" y="20" width="280" height="50"/>
+  <text class="t" x="340" y="42">Gateway Routing</text>
+  <text class="lbl" x="340" y="60">which API / service?</text>
+
+  <line class="edge" x1="340" y1="70" x2="340" y2="95"/>
+  <polygon class="edge" points="336,91 340,99 344,91" fill="#59636e"/>
+
+  <rect class="mr" x="200" y="100" width="280" height="50"/>
+  <text class="t" x="340" y="122">Model Routing</text>
+  <text class="lbl" x="340" y="140">which model / provider / runtime?</text>
+
+  <line class="edge" x1="340" y1="150" x2="340" y2="175"/>
+  <polygon class="edge" points="336,171 340,179 344,171" fill="#59636e"/>
+
+  <rect class="rr" x="200" y="180" width="280" height="50"/>
+  <text class="t" x="340" y="202">Replica Routing</text>
+  <text class="lbl" x="340" y="220">which worker?</text>
+
+  <line class="edge" x1="340" y1="230" x2="340" y2="255"/>
+  <polygon class="edge" points="336,251 340,259 344,251" fill="#59636e"/>
+
+  <rect class="is" x="200" y="260" width="280" height="50"/>
+  <text class="t" x="340" y="282">Inference Scheduler</text>
+  <text class="lbl" x="340" y="300">when does this request run on the GPU?</text>
+
+  <text class="lbl" x="340" y="345">gateway routing ≠ model routing ≠ replica routing ≠ inference scheduling</text>
+</svg>

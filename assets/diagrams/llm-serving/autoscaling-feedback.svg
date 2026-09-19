@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 340" width="760" height="340" role="img" aria-labelledby="afTitle afDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="afTitle">Autoscaling feedback loop with two delays</title>
+  <desc id="afDesc">A feedback loop: traffic spike causes queue growth, TTFT rises, autoscaler observes pressure, new GPU worker requested, then capacity readiness — GPU scheduling, container startup, model loading, runtime initialization, readiness — and finally worker becomes ready and traffic is redistributed. Two delays are highlighted: decision delay and capacity readiness delay.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .d1 { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 6; ry: 6; }
+    .d2 { fill: #ffebe9; stroke: #ff8182; stroke-width: 1; rx: 6; ry: 6; }
+    .ok { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 6; ry: 6; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.06em; }
+    .head { font-size: 12px; font-weight: 700; text-anchor: middle; }
+    .edge { stroke: #59636e; stroke-width: 1.3; fill: none; }
+  </style>
+
+  <rect class="box" x="30" y="30" width="130" height="36"/><text class="t" x="95" y="53">Traffic spike</text>
+  <line class="edge" x1="160" y1="48" x2="190" y2="48"/><polygon class="edge" points="186,44 194,48 186,52" fill="#59636e"/>
+
+  <rect class="box" x="195" y="30" width="120" height="36"/><text class="t" x="255" y="53">Queue grows</text>
+  <line class="edge" x1="315" y1="48" x2="345" y2="48"/><polygon class="edge" points="341,44 349,48 341,52" fill="#59636e"/>
+
+  <rect class="box" x="350" y="30" width="100" height="36"/><text class="t" x="400" y="53">TTFT rises</text>
+  <line class="edge" x1="450" y1="48" x2="480" y2="48"/><polygon class="edge" points="476,44 484,48 476,52" fill="#59636e"/>
+
+  <rect class="d1" x="485" y="30" width="140" height="36"/><text class="t" x="555" y="53">Autoscaler observes</text>
+  <line class="edge" x1="625" y1="48" x2="655" y2="48"/><polygon class="edge" points="651,44 659,48 651,52" fill="#59636e"/>
+
+  <rect class="box" x="660" y="30" width="90" height="36"/><text class="t" x="705" y="53">Worker requested</text>
+
+  <line class="edge" x1="705" y1="66" x2="705" y2="110"/>
+
+  <!-- Decision delay bracket -->
+  <path d="M485,14 L485,8 L750,8 L750,14" stroke="#d4a72c" stroke-width="1.3" fill="none"/>
+  <text class="head" x="617" y="6" style="fill:#9a6700">① Decision delay</text>
+
+  <!-- Capacity readiness column -->
+  <rect class="d2" x="580" y="115" width="170" height="36"/><text class="t" x="665" y="138">GPU scheduling</text>
+  <line class="edge" x1="665" y1="151" x2="665" y2="166"/><polygon class="edge" points="661,162 665,170 669,162" fill="#59636e"/>
+
+  <rect class="d2" x="580" y="172" width="170" height="36"/><text class="t" x="665" y="195">Container startup</text>
+  <line class="edge" x1="665" y1="208" x2="665" y2="223"/><polygon class="edge" points="661,219 665,227 669,219" fill="#59636e"/>
+
+  <rect class="d2" x="580" y="229" width="170" height="36"/><text class="t" x="665" y="252">Model loading</text>
+  <line class="edge" x1="665" y1="265" x2="665" y2="280"/><polygon class="edge" points="661,276 665,284 669,276" fill="#59636e"/>
+
+  <rect class="ok" x="580" y="286" width="170" height="36"/><text class="t" x="665" y="309">Worker ready · traffic redistributed</text>
+
+  <!-- Capacity readiness bracket -->
+  <path d="M580,100 L574,100 L574,322 L580,322" stroke="#ff8182" stroke-width="1.3" fill="none"/>
+  <text class="head" x="490" y="210" style="fill:#a53737">② Capacity</text>
+  <text class="head" x="490" y="226" style="fill:#a53737">readiness delay</text>
+
+  <text class="lbl" x="380" y="335">capacity readiness includes GPU scheduling, startup, model loading, init and readiness — longer than stateless web scaling</text>
+</svg>

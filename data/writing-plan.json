@@ -3,17 +3,15 @@
     {
       "title": "Designing Production LLM Serving Systems",
       "category": "LLM Systems",
-      "focus": "vLLM, KServe, GPU serving, scaling and reliability",
+      "focus": "Inference engines, routing, GPU workers, KServe and serving scale",
       "url": "/articles/production-llm-serving.html"
     }
   ],
   "current": {
     "title": "LLM Inference Engineering: From Prompt to Token",
     "category": "LLM Inference",
-    "focus": "Prefill, decode, KV cache, batching, GPU memory and inference scheduling",
-    "url": "/articles/llm-inference-engineering.html",
-    "status": "draft",
-    "workingOn": "Article drafted. Experiment design defined; benchmark runs not yet executed."
+    "focus": "Prefill, decode, KV cache, batching, scheduling and GPU memory",
+    "workingOn": "Building the technical explanation and reproducible inference benchmark."
   },
   "next": [
     {
