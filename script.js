@@ -119,53 +119,46 @@
     container.innerHTML = "";
 
     // Published
-    (plan.published || []).forEach(function (p, i) {
-      var block = el("div", "notebook-block");
-      block.appendChild(el("p", "notebook-label", "Published"));
-      block.appendChild(el("h3", "notebook-title", p.title));
-      if (p.focus) block.appendChild(el("p", "notebook-focus", p.focus));
-      if (p.url) {
-        var a = el("a", "notebook-link", "Read →");
-        a.href = p.url;
-        block.appendChild(a);
-      }
-      container.appendChild(block);
-      container.appendChild(el("hr", "div"));
-    });
+    var pubs = plan.published || [];
+    if (pubs.length) {
+      var pubBlock = el("div", "notebook-block");
+      pubBlock.appendChild(el("p", "notebook-label", "Published / " + String(pubs.length).padStart(2, "0")));
+
+      pubs.forEach(function (p, i) {
+        var item = el("div", "notebook-pub-item");
+        var num = el("span", "notebook-num", String(i + 1).padStart(2, "0"));
+        item.appendChild(num);
+        item.appendChild(el("h3", "notebook-title", p.title));
+        if (p.focus) item.appendChild(el("p", "notebook-focus", p.focus));
+        if (p.url) {
+          var a = el("a", "notebook-link", "Read →");
+          a.href = p.url;
+          item.appendChild(a);
+        }
+        pubBlock.appendChild(item);
+        if (i < pubs.length - 1) {
+          pubBlock.appendChild(el("hr", "div"));
+        }
+      });
+      container.appendChild(pubBlock);
+    }
 
     // Current
     if (plan.current) {
       var c = plan.current;
+      container.appendChild(el("hr", "div"));
       var cblock = el("div", "notebook-block");
       cblock.appendChild(el("p", "notebook-label", "Now"));
       cblock.appendChild(el("h3", "notebook-title", c.title));
       if (c.focus) {
-        var fc = el("p", "notebook-focus", "Currently looking at:");
-        cblock.appendChild(fc);
-        var fcLine = el("p", "notebook-focus-line", c.focus);
+        var fcLine = el("p", "notebook-focus", c.focus);
         cblock.appendChild(fcLine);
       }
       if (c.workingOn) {
-        var wo = el("p", "notebook-working", "Working on:");
-        cblock.appendChild(wo);
-        var woLine = el("p", "notebook-working-line", c.workingOn);
+        var woLine = el("p", "notebook-working", c.workingOn);
         cblock.appendChild(woLine);
       }
       container.appendChild(cblock);
-      container.appendChild(el("hr", "div"));
-    }
-
-    // Next
-    if (plan.next && plan.next.length) {
-      var nblock = el("div", "notebook-block");
-      nblock.appendChild(el("p", "notebook-label", "Next"));
-      plan.next.forEach(function (n) {
-        var item = el("div", "notebook-next-item");
-        item.appendChild(el("h3", "notebook-title", n.title));
-        if (n.focus) item.appendChild(el("p", "notebook-focus", n.focus));
-        nblock.appendChild(item);
-      });
-      container.appendChild(nblock);
     }
   }
 })();

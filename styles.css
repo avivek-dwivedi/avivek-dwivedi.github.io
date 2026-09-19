@@ -1667,5 +1667,21 @@ sup.ref a:hover { text-decoration: underline; }
 .notebook-next-item .notebook-title { font-size: 16px; }
 .notebook hr.div { margin: 20px 0; }
 
+/* Published article items with numbering */
+.notebook-pub-item {
+  padding: 14px 0;
+}
+.notebook-pub-item:first-of-type { padding-top: 10px; }
+.notebook-num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-mute);
+  display: block;
+  margin-bottom: 4px;
+}
+.notebook-pub-item .notebook-title { font-size: 16px; margin-bottom: 4px; }
+.notebook-pub-item .notebook-link { margin-top: 6px; display: inline-block; }
+
 /* Hide old featured-writing/roadmap/coming/serving-mini/vis-diagram no longer used on home */
 .featured-writing, .roadmap, .coming-heading, .coming-list, .serving-mini, .vis-diagram { display: none; }

@@ -1,28 +1,24 @@
 {
   "published": [
     {
+      "title": "LLM Inference Engineering: From Prompt to Token",
+      "focus": "Prefill, decode, KV cache, scheduling and GPU memory",
+      "url": "/articles/llm-inference-engineering.html"
+    },
+    {
       "title": "Designing Production LLM Serving Systems",
-      "category": "LLM Systems",
-      "focus": "Inference engines, routing, GPU workers, KServe and serving scale",
+      "focus": "vLLM, TGI, SGLang, KServe, GPU workers and scaling",
       "url": "/articles/production-llm-serving.html"
+    },
+    {
+      "title": "Building LLM APIs Under Production Limits",
+      "focus": "Adaptive rate limiting, TPM/RPM, queues, prompt caching, streaming recovery and bounded memory",
+      "url": "/articles/llm-api-production-limits.html"
     }
   ],
   "current": {
-    "title": "LLM Inference Engineering: From Prompt to Token",
-    "category": "LLM Inference",
-    "focus": "Prefill, decode, KV cache, batching, scheduling and GPU memory",
-    "workingOn": "Building the technical explanation and reproducible inference benchmark."
-  },
-  "next": [
-    {
-      "title": "Building LLM APIs Under Production Limits",
-      "category": "Reliability",
-      "focus": "Adaptive rate limiting, TPM/RPM limits, batching, prompt caching, queues and streaming recovery"
-    },
-    {
-      "title": "Private LLMOps for Multi-Agent Systems",
-      "category": "LLMOps",
-      "focus": "OpenTelemetry, Langfuse, PostgreSQL, AWS and end-to-end agent observability"
-    }
-  ]
+    "title": "Private LLMOps for Multi-Agent Systems",
+    "focus": "OpenTelemetry, Langfuse, PostgreSQL and AWS",
+    "workingOn": "Building observability across LLM calls, agent steps, tool execution, evaluations, latency, token usage and cost."
+  }
 }

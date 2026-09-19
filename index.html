@@ -270,38 +270,46 @@
     <!-- Engineering Notebook -->
     <section class="section" id="writing">
       <h2>Engineering Notebook</h2>
-      <p class="section-intro">What I've published, what I'm testing now, and what I plan to investigate next.</p>
+      <p class="section-intro">Technical work I've published and what I'm working on now.</p>
 
       <div id="writing-plan" class="notebook">
         <!-- Static fallback (replaced by JS if fetch succeeds) -->
         <div class="notebook-block">
-          <p class="notebook-label">Published</p>
-          <h3 class="notebook-title">Designing Production LLM Serving Systems</h3>
-          <p class="notebook-focus">Inference engines · routing · GPU workers · KServe · serving scale</p>
-          <a class="notebook-link" href="/articles/production-llm-serving.html">Read →</a>
+          <p class="notebook-label">Published / 03</p>
+
+          <div class="notebook-pub-item">
+            <span class="notebook-num">01</span>
+            <h3 class="notebook-title">LLM Inference Engineering: From Prompt to Token</h3>
+            <p class="notebook-focus">Prefill · Decode · KV Cache · Scheduling · GPU Memory</p>
+            <a class="notebook-link" href="/articles/llm-inference-engineering.html">Read →</a>
+          </div>
+
+          <hr class="div">
+
+          <div class="notebook-pub-item">
+            <span class="notebook-num">02</span>
+            <h3 class="notebook-title">Designing Production LLM Serving Systems</h3>
+            <p class="notebook-focus">vLLM · TGI · SGLang · KServe · GPU Workers · Scaling</p>
+            <a class="notebook-link" href="/articles/production-llm-serving.html">Read →</a>
+          </div>
+
+          <hr class="div">
+
+          <div class="notebook-pub-item">
+            <span class="notebook-num">03</span>
+            <h3 class="notebook-title">Building LLM APIs Under Production Limits</h3>
+            <p class="notebook-focus">Adaptive Rate Limiting · TPM/RPM · Queues · Prompt Caching · Streaming Recovery · Bounded Memory</p>
+            <a class="notebook-link" href="/articles/llm-api-production-limits.html">Read →</a>
+          </div>
         </div>
 
         <hr class="div">
 
         <div class="notebook-block">
           <p class="notebook-label">Now</p>
-          <h3 class="notebook-title">LLM Inference Engineering: From Prompt to Token</h3>
-          <p class="notebook-focus">Prefill · Decode · KV Cache · Batching · GPU Memory</p>
-          <p class="notebook-working">Building the technical explanation and reproducible inference benchmark.</p>
-        </div>
-
-        <hr class="div">
-
-        <div class="notebook-block">
-          <p class="notebook-label">Next</p>
-          <div class="notebook-next-item">
-            <h3 class="notebook-title">Building LLM APIs Under Production Limits</h3>
-            <p class="notebook-focus">Adaptive rate limiting · TPM/RPM · batching · prompt caching · streaming recovery</p>
-          </div>
-          <div class="notebook-next-item">
-            <h3 class="notebook-title">Private LLMOps for Multi-Agent Systems</h3>
-            <p class="notebook-focus">OpenTelemetry · Langfuse · PostgreSQL · AWS · multi-agent observability</p>
-          </div>
+          <h3 class="notebook-title">Private LLMOps for Multi-Agent Systems</h3>
+          <p class="notebook-focus">OpenTelemetry · Langfuse · PostgreSQL · AWS</p>
+          <p class="notebook-working">Building observability across LLM calls, agent steps, tool execution, evaluations, latency, token usage and cost.</p>
         </div>
       </div>
     </section>
