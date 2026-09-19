@@ -881,6 +881,11 @@ p code, li code {
 @media (prefers-color-scheme: dark) {
   .research-note .callout-label { color: #bc8cff; }
 }
+.provider-note {
+  border-left-color: #1f6feb;
+  background: var(--bg-soft);
+}
+.provider-note .callout-label { color: #1f6feb; }
 .measurement-note {
   border-left-color: var(--warn-border);
   background: var(--warn-bg);

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 480" width="760" height="480" role="img" aria-labelledby="srTitle srDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="srTitle">Stream delivery resume</title>
+  <desc id="srDesc">Initial connection: client receives chunks 1 through 41 then disconnects. Reconnect: client provides request_id and last_sequence_id=41. The server replays persisted chunks 42 onward and joins the live stream if generation is still active.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .chunk { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 3; ry: 3; }
+    .replay { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 3; ry: 3; }
+    .live { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 3; ry: 3; }
+    .disc { fill: #ffebe9; stroke: #ff8182; stroke-width: 1; rx: 3; ry: 3; }
+    .t { font-size: 11px; fill: #1f2328; text-anchor: middle; }
+    .head { font-size: 13px; fill: #1f2328; text-anchor: middle; font-weight: 700; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+  </style>
+
+  <!-- Initial connection -->
+  <text class="head" x="380" y="25">Initial connection</text>
+  <rect class="box" x="80" y="45" width="100" height="30"/><text class="t" x="130" y="65">client</text>
+  <line class="edge" x1="180" y1="60" x2="210" y2="60"/>
+  <rect class="box" x="210" y="45" width="80" height="30"/><text class="t" x="250" y="65">request_id</text>
+  <line class="edge" x1="290" y1="60" x2="320" y2="60"/>
+
+  <rect class="chunk" x="320" y="45" width="30" height="30"/><text class="t" x="335" y="65" style="font-size:9px">1</text>
+  <rect class="chunk" x="355" y="45" width="30" height="30"/><text class="t" x="370" y="65" style="font-size:9px">2</text>
+  <text class="lbl" x="420" y="65">...</text>
+  <rect class="chunk" x="460" y="45" width="30" height="30"/><text class="t" x="475" y="65" style="font-size:8px">41</text>
+  <line class="edge" x1="490" y1="60" x2="520" y2="60"/>
+  <rect class="disc" x="520" y="45" width="100" height="30"/><text class="t" x="570" y="65">disconnect</text>
+
+  <!-- Divider -->
+  <line class="edge" x1="60" y1="110" x2="700" y2="110" stroke-dasharray="5 3"/>
+
+  <!-- Reconnect -->
+  <text class="head" x="380" y="140">Reconnect</text>
+  <rect class="box" x="60" y="160" width="160" height="30"/><text class="t" x="140" y="180">request_id</text>
+  <rect class="box" x="240" y="160" width="200" height="30"/><text class="t" x="340" y="180">last_sequence_id = 41</text>
+  <line class="edge" x1="440" y1="175" x2="470" y2="175"/><polygon class="edge" points="466,171 474,175 466,179" fill="#59636e"/>
+
+  <rect class="box" x="470" y="160" width="160" height="30"/><text class="t" x="550" y="180">replay persisted</text>
+
+  <line class="edge" x1="550" y1="190" x2="550" y2="220"/><polygon class="edge" points="546,216 550,224 554,216" fill="#59636e"/>
+
+  <rect class="replay" x="320" y="225" width="30" height="30"/><text class="t" x="335" y="245" style="font-size:8px">42</text>
+  <rect class="replay" x="355" y="225" width="30" height="30"/><text class="t" x="370" y="245" style="font-size:8px">43</text>
+  <rect class="replay" x="390" y="225" width="30" height="30"/><text class="t" x="405" y="245" style="font-size:8px">44</text>
+  <text class="lbl" x="460" y="245">...</text>
+
+  <line class="edge" x1="380" y1="255" x2="380" y2="285"/><polygon class="edge" points="376,281 380,289 384,281" fill="#59636e"/>
+
+  <rect class="box" x="260" y="290" width="240" height="34"/><text class="t" x="380" y="312">join live stream if still active</text>
+
+  <line class="edge" x1="380" y1="324" x2="380" y2="355"/><polygon class="edge" points="376,351 380,359 384,351" fill="#59636e"/>
+
+  <rect class="live" x="320" y="360" width="30" height="30"/><text class="t" x="335" y="380" style="font-size:8px">45</text>
+  <rect class="live" x="355" y="360" width="30" height="30"/><text class="t" x="370" y="380" style="font-size:8px">46</text>
+  <rect class="live" x="390" y="360" width="30" height="30"/><text class="t" x="405" y="380" style="font-size:8px">47</text>
+  <text class="lbl" x="460" y="380">live</text>
+
+  <text class="lbl" x="380" y="430">delivery resume ≠ generation resume</text>
+  <text class="lbl" x="380" y="450">replay persisted chunks — provider generation failure requires a new generation</text>
+</svg>

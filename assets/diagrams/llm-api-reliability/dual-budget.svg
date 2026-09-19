@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 360" width="560" height="360" role="img" aria-labelledby="dbTitle dbDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="dbTitle">Dual budget — request bucket and token bucket</title>
+  <desc id="dbDesc">A request bucket limits RPM (requests per minute) and a token bucket limits TPM (tokens per minute). Admission requires both buckets to have sufficient capacity: at least 1 request slot and at least the estimated token reservation.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .bucket { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1.5; rx: 6; ry: 6; }
+    .admit { fill: #dafbe1; stroke: #2da44e; stroke-width: 1.5; rx: 6; ry: 6; }
+    .t { font-size: 13px; fill: #1f2328; text-anchor: middle; }
+    .ta { font-size: 13px; fill: #0a66c2; text-anchor: middle; font-weight: 600; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+  </style>
+
+  <rect class="box" x="210" y="20" width="140" height="36"/><text class="t" x="280" y="43">Incoming request</text>
+
+  <line class="edge" x1="280" y1="56" x2="280" y2="85"/>
+
+  <rect class="bucket" x="60" y="90" width="180" height="80"/>
+  <text class="ta" x="150" y="115">Request Bucket</text>
+  <text class="lbl" x="150" y="135">Capacity: RPM</text>
+  <text class="lbl" x="150" y="155">Refill: RPM / unit time</text>
+
+  <rect class="bucket" x="320" y="90" width="180" height="80"/>
+  <text class="ta" x="410" y="115">Token Bucket</text>
+  <text class="lbl" x="410" y="135">Capacity: TPM</text>
+  <text class="lbl" x="410" y="155">Refill: TPM / unit time</text>
+
+  <line class="edge" x1="150" y1="170" x2="150" y2="200"/>
+  <line class="edge" x1="410" y1="170" x2="410" y2="200"/>
+  <line class="edge" x1="150" y1="200" x2="410" y2="200"/>
+  <line class="edge" x1="280" y1="200" x2="280" y2="225"/>
+  <polygon class="edge" points="276,221 280,229 284,221" fill="#59636e"/>
+
+  <rect class="admit" x="180" y="230" width="200" height="40"/>
+  <text class="t" x="280" y="255" style="fill:#1a7f37; font-weight:600">both available? → Admit</text>
+
+  <text class="lbl" x="280" y="310">request_bucket ≥ 1  AND  token_bucket ≥ estimated_reservation</text>
+  <text class="lbl" x="280" y="330">local limiter approximates provider window semantics — not exact</text>
+</svg>

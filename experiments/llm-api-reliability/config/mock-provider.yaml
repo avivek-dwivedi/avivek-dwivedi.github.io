@@ -1,0 +1,16 @@
+rpm: 100
+tpm: 100000
+
+latency_ms:
+  min: 200
+  max: 800
+
+first_token_ms:
+  min: 100
+  max: 500
+
+failure_rate: 0.05
+throttle_rate: 0.05
+
+stream_chunk_delay_ms: 40
+stream_failure_after_chunks: null

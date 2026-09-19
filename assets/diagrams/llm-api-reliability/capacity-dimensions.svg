@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 420" width="560" height="420" role="img" aria-labelledby="cdTitle cdDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="cdTitle">Multi-dimensional capacity</title>
+  <desc id="cdDesc">A request enters and is checked against six capacity dimensions: RPM budget, TPM budget, concurrency budget, tenant quota, cost budget, and deadline. All must pass before the request is admitted. Rate, token capacity, and concurrency are not the same thing.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .check { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 4; ry: 4; }
+    .admit { fill: #dafbe1; stroke: #2da44e; stroke-width: 1.5; rx: 6; ry: 6; }
+    .t { font-size: 13px; fill: #1f2328; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+  </style>
+
+  <rect class="box" x="210" y="20" width="140" height="40"/><text class="t" x="280" y="45">Request</text>
+
+  <line class="edge" x1="280" y1="60" x2="280" y2="85"/>
+
+  <rect class="check" x="60"  y="90" width="140" height="34"/><text class="t" x="130" y="112" style="font-size:12px">RPM budget</text>
+  <rect class="check" x="210" y="90" width="140" height="34"/><text class="t" x="280" y="112" style="font-size:12px">TPM budget</text>
+  <rect class="check" x="360" y="90" width="140" height="34"/><text class="t" x="430" y="112" style="font-size:12px">Concurrency</text>
+
+  <rect class="check" x="60"  y="135" width="140" height="34"/><text class="t" x="130" y="157" style="font-size:12px">Tenant quota</text>
+  <rect class="check" x="210" y="135" width="140" height="34"/><text class="t" x="280" y="157" style="font-size:12px">Cost budget</text>
+  <rect class="check" x="360" y="135" width="140" height="34"/><text class="t" x="430" y="157" style="font-size:12px">Deadline</text>
+
+  <line class="edge" x1="280" y1="175" x2="280" y2="210"/>
+  <polygon class="edge" points="276,206 280,214 284,206" fill="#59636e"/>
+
+  <rect class="admit" x="220" y="215" width="120" height="44"/><text class="t" x="280" y="242" style="fill:#1a7f37; font-weight:700">ADMIT?</text>
+
+  <text class="lbl" x="280" y="300">Rate ≠ token capacity ≠ concurrency</text>
+  <text class="lbl" x="280" y="320">All dimensions must pass before admission</text>
+  <text class="lbl" x="280" y="340">A request that passes RPM may still fail TPM</text>
+</svg>

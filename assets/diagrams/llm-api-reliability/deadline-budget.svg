@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img" aria-labelledby="dlbTitle dlbDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="dlbTitle">Deadline budget across the pipeline</title>
+  <desc id="dlbDesc">A 20-second total deadline is consumed across the pipeline: 4 seconds in queue, 10 seconds on the provider attempt, leaving 6 seconds remaining. The retry decision must use the remaining budget, not an independent timeout.</desc>
+
+  <style>
+    .bar-bg { fill: #f6f8fa; stroke: #30363d; stroke-width: 1; rx: 4; ry: 4; }
+    .queue { fill: #fff8c5; }
+    .provider { fill: #ddf4ff; }
+    .remaining { fill: #dafbe1; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .head { font-size: 13px; fill: #1f2328; text-anchor: middle; font-weight: 700; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+  </style>
+
+  <text class="head" x="380" y="25">20-second total deadline</text>
+
+  <rect class="bar-bg" x="30" y="50" width="700" height="44"/>
+  <rect class="queue" x="32" y="52" width="140" height="40" stroke="#d4a72c" stroke-width="1"/>
+  <text class="t" x="102" y="76">Queue · 4s</text>
+  <rect class="provider" x="172" y="52" width="350" height="40" stroke="#2f81f7" stroke-width="1"/>
+  <text class="t" x="347" y="76">Provider attempt · 10s</text>
+  <rect class="remaining" x="522" y="52" width="206" height="40" stroke="#2da44e" stroke-width="1"/>
+  <text class="t" x="625" y="76">Remaining · 6s</text>
+
+  <line class="edge" x1="30" y1="44" x2="30" y2="100"/>
+  <line class="edge" x1="730" y1="44" x2="730" y2="100"/>
+  <text class="lbl" x="30" y="38">start</text>
+  <text class="lbl" x="730" y="38">deadline</text>
+
+  <text class="lbl" x="380" y="130">Can another retry complete meaningfully in 6 seconds?</text>
+  <text class="lbl" x="380" y="150">If remaining &lt; estimated provider time → do not retry</text>
+
+  <text class="lbl" x="380" y="200">Do not give every layer an independent 60-second timeout</text>
+  <text class="lbl" x="380" y="220">A timeout is local to an operation · A deadline describes the request's useful lifetime</text>
+  <text class="lbl" x="380" y="260">retry decision must use remaining budget, not a fresh timeout</text>
+</svg>

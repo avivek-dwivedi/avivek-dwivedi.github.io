@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 380" width="760" height="380" role="img" aria-labelledby="qcTitle qcDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="qcTitle">Unbounded queue vs bounded admission</title>
+  <desc id="qcDesc">Left: an unbounded queue under traffic exceeding capacity grows without limit — memory increases, latency increases, requests become useless before execution, timeouts and retries amplify. Right: a bounded queue reaches its limit and defers, rejects, or routes excess traffic, keeping admitted work bounded.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .bad { fill: #ffebe9; stroke: #ff8182; stroke-width: 1; rx: 6; ry: 6; }
+    .good { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 6; ry: 6; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .head { font-size: 14px; fill: #1f2328; text-anchor: middle; font-weight: 700; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+  </style>
+
+  <text class="head" x="190" y="25">Unbounded queue</text>
+  <text class="head" x="570" y="25">Bounded admission</text>
+  <line class="edge" x1="380" y1="10" x2="380" y2="360"/>
+
+  <!-- Left -->
+  <rect class="bad" x="50" y="45" width="280" height="34"/><text class="t" x="190" y="67">traffic &gt; capacity</text>
+  <line class="edge" x1="190" y1="79" x2="190" y2="95"/><polygon class="edge" points="186,91 190,99 194,91" fill="#59636e"/>
+  <rect class="box" x="50" y="100" width="280" height="34"/><text class="t" x="190" y="122">queue grows: 100 → 1,000 → 10,000</text>
+  <line class="edge" x1="190" y1="134" x2="190" y2="150"/><polygon class="edge" points="186,146 190,154 194,146" fill="#59636e"/>
+  <rect class="box" x="50" y="155" width="280" height="34"/><text class="t" x="190" y="177">memory increases</text>
+  <line class="edge" x1="190" y1="189" x2="190" y2="205"/><polygon class="edge" points="186,201 190,209 194,201" fill="#59636e"/>
+  <rect class="box" x="50" y="210" width="280" height="34"/><text class="t" x="190" y="232">latency grows → requests useless</text>
+  <line class="edge" x1="190" y1="244" x2="190" y2="260"/><polygon class="edge" points="186,256 190,264 194,256" fill="#59636e"/>
+  <rect class="bad" x="50" y="265" width="280" height="34"/><text class="t" x="190" y="287">timeout → retry → amplification</text>
+  <text class="lbl" x="190" y="325">system alive · service quality collapsed</text>
+
+  <!-- Right -->
+  <rect class="good" x="430" y="45" width="280" height="34"/><text class="t" x="570" y="67">traffic &gt; capacity</text>
+  <line class="edge" x1="570" y1="79" x2="570" y2="95"/><polygon class="edge" points="566,91 570,99 574,91" fill="#59636e"/>
+  <rect class="box" x="430" y="100" width="280" height="34"/><text class="t" x="570" y="122">queue limit reached</text>
+  <line class="edge" x1="570" y1="134" x2="570" y2="150"/><polygon class="edge" points="566,146 570,154 574,146" fill="#59636e"/>
+  <rect class="good" x="430" y="155" width="280" height="34"/><text class="t" x="570" y="177">defer / reject / route</text>
+  <line class="edge" x1="570" y1="189" x2="570" y2="205"/><polygon class="edge" points="566,201 570,209 574,201" fill="#59636e"/>
+  <rect class="box" x="430" y="210" width="280" height="34"/><text class="t" x="570" y="232">admitted work remains bounded</text>
+  <line class="edge" x1="570" y1="244" x2="570" y2="260"/><polygon class="edge" points="566,256 570,264 574,256" fill="#59636e"/>
+  <rect class="good" x="430" y="265" width="280" height="34"/><text class="t" x="570" y="287">memory bounded · latency bounded</text>
+  <text class="lbl" x="570" y="325">sacrifice some admission for bounded system</text>
+</svg>

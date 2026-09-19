@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Building LLM APIs Under Production Limits | Avivek Dwivedi</title>
+  <meta name="description" content="Adaptive rate limiting, token budgets, bounded queues, prompt caching, streaming recovery and failure-aware routing for production LLM APIs.">
+  <link rel="canonical" href="https://avivek-dwivedi.github.io/articles/llm-api-production-limits.html">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Building LLM APIs Under Production Limits | Avivek Dwivedi">
+  <meta property="og:description" content="Adaptive rate limiting, token budgets, bounded queues, prompt caching, streaming recovery and failure-aware routing for production LLM APIs.">
+  <meta property="og:url" content="https://avivek-dwivedi.github.io/articles/llm-api-production-limits.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Building LLM APIs Under Production Limits",
+    "description": "Adaptive rate limiting, token budgets, bounded queues, prompt caching, streaming recovery and failure-aware routing.",
+    "author": { "@type": "Person", "name": "Avivek Dwivedi", "url": "https://avivek-dwivedi.github.io/" },
+    "publisher": { "@type": "Person", "name": "Avivek Dwivedi", "url": "https://avivek-dwivedi.github.io/" },
+    "mainEntityOfPage": { "@type": "WebPage", "@id": "https://avivek-dwivedi.github.io/articles/llm-api-production-limits.html" },
+    "articleSection": "LLM Reliability",
+    "keywords": ["LLM API", "rate limiting", "TPM", "RPM", "retry", "circuit breaker", "prompt caching", "streaming", "bounded memory", "backpressure"],
+    "dateModified": "2026-09-19"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#article-main">Skip to content</a>
+
+  <nav class="nav" aria-label="Primary">
+    <span class="nav-brand"><a href="/">AVIVEK</a></span>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/#systems">Systems</a></li>
+      <li><a href="/#engineering">Engineering</a></li>
+      <li><a href="/#writing">Writing</a></li>
+      <li><a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <main id="article-main">
+    <div class="shell">
+      <div class="article-hero">
+        <a class="back-home" href="/">← Back to home</a>
+        <p class="eyebrow">LLM Reliability</p>
+        <h1>Building LLM APIs Under Production Limits</h1>
+        <p class="subtitle">Adaptive rate limiting, token budgets, bounded queues, prompt caching, streaming recovery and failure-aware routing.</p>
+        <div class="article-meta">
+          <span>Avivek Dwivedi</span>
+          <span class="dot">·</span>
+          <span class="tag tag-accent">Advanced</span>
+          <span class="dot">·</span>
+          <span>Updated Sep 2026</span>
+          <span class="dot">·</span>
+          <span>Draft</span>
+        </div>
+        <div class="meta" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <span class="tag">Rate Limiting</span>
+          <span class="tag">Token Budgets</span>
+          <span class="tag">Retries</span>
+          <span class="tag">Circuit Breakers</span>
+          <span class="tag">Streaming</span>
+          <span class="tag">Backpressure</span>
+        </div>
+        <p class="opening">A model API can be perfectly healthy while the application around it collapses. A traffic spike consumes the token budget. Requests begin receiving throttling responses. Workers retry. Those retries consume more request capacity. A queue grows. Queue wait becomes larger than the request's useful lifetime. Clients time out and retry again. Meanwhile streamed responses accumulate in process memory because downstream consumers are slower than the model. Nothing is wrong with the model. The control layer is wrong. This article builds that control layer around an LLM API.</p>
+      </div>
+    </div>
+
+    <div class="article-shell">
+      <article class="article-body">
+
+        <h2 id="s1">01. Why RPM alone is not rate limiting</h2>
+        <p>LLM APIs are constrained across multiple dimensions, not just request count. Potential constraints include:</p>
+        <ul>
+          <li><strong>RPM</strong> — requests per minute</li>
+          <li><strong>TPM</strong> — tokens per minute</li>
+          <li>Input token limits and output token limits</li>
+          <li>Concurrent requests</li>
+          <li>Batch queue limits</li>
+          <li>Model-specific limits</li>
+          <li>Region-specific limits</li>
+          <li>Tenant quotas and account budgets</li>
+          <li>Application cost budgets</li>
+        </ul>
+        <p>Not every provider exposes every type, and provider semantics differ. Treating rate limiting as "N requests per minute" ignores the fact that a 300-token request and a 16,000-token request have radically different capacity, cost, and latency impacts even though both consume exactly 1 RPM unit.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/capacity-dimensions.svg" role="img" aria-label="Multi-dimensional capacity" style="width:100%; max-width:560px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 1 — A request is checked against multiple capacity dimensions before admission.</figcaption>
+        </figure>
+
+        <div class="engineering-note">
+          <span class="callout-label">Engineering Note</span>
+          <p>Rate ≠ token capacity ≠ concurrency. A request that passes RPM may still fail TPM. A request that passes both may still exceed concurrency slots. Each dimension must be checked independently.</p>
+        </div>
+
+        <h2 id="s2">02. Small request vs large request</h2>
+        <p>Consider two requests that both consume 1 RPM unit:</p>
+        <table class="article-table">
+          <thead><tr><th></th><th>Request A</th><th>Request B</th></tr></thead>
+          <tbody>
+            <tr><td>Input tokens</td><td>300</td><td>12,000</td></tr>
+            <tr><td>Max output</td><td>200</td><td>4,000</td></tr>
+            <tr><td>Potential reservation</td><td>500</td><td>16,000</td></tr>
+            <tr><td>RPM cost</td><td>1</td><td>1</td></tr>
+            <tr><td>TPM impact</td><td>500</td><td>16,000</td></tr>
+          </tbody>
+        </table>
+        <p>An RPM-only limiter treats these identically. A token-aware limiter recognizes that Request B consumes 32× the token budget. Under heterogeneous workloads, RPM-only limiting allows large requests to exhaust token capacity while the rate counter reports "requests remaining."</p>
+
+        <h2 id="s3">03. Token-aware admission control</h2>
+        <p>Before calling the provider, the gateway should estimate input tokens, determine the requested output ceiling, and calculate a conservative token reservation:</p>
+        <div class="flow">reservation = estimated_input_tokens + reserved_output_tokens</div>
+        <p>Then check: request budget, token budget, concurrency slot, tenant quota, cost budget, and deadline feasibility. If all pass, admit. Otherwise queue, reject, defer, or route elsewhere depending on workload policy.</p>
+
+        <div class="code-block">
+          <span class="code-caption">Illustrative implementation — not production-ready</span>
+<pre><code>from dataclasses import dataclass
+
+@dataclass
+class TokenReservation:
+    request_tokens: int
+    reserved_tokens: int
+
+async def reserve_capacity(request) -> TokenReservation:
+    input_tokens = await estimate_tokens(request)
+    reserved_tokens = input_tokens + request.max_output_tokens
+
+    async with budget_lock:
+        if not rpm_budget.can_take(1):
+            raise RateLimited("rpm")
+
+        if not tpm_budget.can_take(reserved_tokens):
+            raise RateLimited("tpm")
+
+        if not concurrency_budget.available():
+            raise CapacityExceeded("concurrency")
+
+        rpm_budget.take(1)
+        tpm_budget.take(reserved_tokens)
+
+    return TokenReservation(
+        request_tokens=input_tokens,
+        reserved_tokens=reserved_tokens,
+    )</code></pre>
+        </div>
+        <p>This code is illustrative. In a multi-instance gateway, budgets need atomic or distributed coordination rather than an in-process lock. A single-process lock does not protect budgets when multiple gateway instances share provider capacity.</p>
+
+        <h2 id="s4">04. Reservation and reconciliation</h2>
+        <p>Reservation is conservative: the system reserves the maximum possible tokens (estimated input + max output) before generation begins, because it must protect capacity before knowing how many tokens will actually be used.</p>
+        <p>But actual generation often uses far fewer tokens than the reservation:</p>
+        <table class="article-table">
+          <thead><tr><th></th><th>Tokens</th></tr></thead>
+          <tbody>
+            <tr><td>Estimated input</td><td>2,000</td></tr>
+            <tr><td>Max output</td><td>4,000</td></tr>
+            <tr><td>Reserved</td><td>6,000</td></tr>
+            <tr><td>Actual input</td><td>2,000</td></tr>
+            <tr><td>Actual output</td><td>550</td></tr>
+            <tr><td>Actual total</td><td>2,550</td></tr>
+            <tr><td>Unused reservation</td><td>3,450</td></tr>
+          </tbody>
+        </table>
+        <p>The system must reconcile: release the unused 3,450 tokens back to the budget after generation completes. Without reconciliation, conservative reservations permanently under-utilize capacity. The exact reconciliation strategy depends on how the provider accounts for tokens — some bill on actual usage, some on reserved capacity. Do not prescribe one universal accounting strategy.</p>
+
+        <h2 id="s5">05. Dual token bucket design</h2>
+        <p>A token bucket refills at a fixed rate up to a capacity ceiling. Two buckets can model RPM and TPM independently:</p>
+        <ul>
+          <li><strong>Request bucket</strong> — capacity: RPM, refill rate: RPM per unit time</li>
+          <li><strong>Token bucket</strong> — capacity: TPM, refill rate: TPM per unit time</li>
+        </ul>
+        <p>Admission requires: <code>request_bucket ≥ 1 AND token_bucket ≥ estimated_reservation</code>.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/dual-budget.svg" role="img" aria-label="Dual budget — request bucket and token bucket" style="width:100%; max-width:560px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 2 — Dual budget. Admission requires both buckets to have sufficient capacity.</figcaption>
+        </figure>
+
+        <div class="provider-note">
+          <span class="callout-label">Provider Note</span>
+          <p>The local limiter may only approximate provider window semantics. Providers may use different algorithms internally (sliding window, fixed window, token bucket, or hybrid). Do not assume the local limiter exactly mirrors the provider's internal rate-limiting algorithm.</p>
+        </div>
+
+        <h2 id="s6">06. Adaptive rate limiting</h2>
+        <p>A hardcoded limiter is a static ceiling. An adaptive limiter combines multiple signals into a conservative effective budget:</p>
+        <div class="flow">Configured limits
+  +
+  Provider feedback (remaining capacity, reset signals)
+  +
+  Actual token usage
+  +
+  Observed 429 / throttling responses
+  +
+  Recent error rate / latency / congestion
+  ↓
+Effective admission budget</div>
+        <p>The gateway adjusts its effective budget based on what it observes. If the provider returns throttling responses, the gateway should reduce its effective budget rather than continuing to send requests at the configured ceiling. Exact header names and signals are provider-specific — do not make provider-specific header names universal. Research current official documentation before implementing provider-specific signal handling.</p>
+
+        <h2 id="s7">07. Concurrency control</h2>
+        <p>Staying below RPM and TPM does not guarantee system health. If requests take a long time, in-flight work accumulates: connections, workers, async tasks, memory, stream buffers, and provider sockets all consume resources while requests are active.</p>
+        <div class="code-block">
+          <span class="code-caption">Illustrative — concurrency semaphore</span>
+<pre><code>import asyncio
+
+concurrency = asyncio.Semaphore(MAX_IN_FLIGHT)
+
+async def handle(request):
+    async with concurrency:
+        return await provider_call(request)</code></pre>
+        </div>
+        <p>The number should come from measured workload behavior, not an arbitrary guess. Too low wastes capacity; too high allows resource accumulation that degrades the entire process.</p>
+
+        <h3>Little's Law</h3>
+        <p>A compact queueing-theory result provides engineering intuition: $L \approx \lambda \times W$, where $L$ is the average number of requests in the system, $\lambda$ is the arrival rate, and $W$ is the average time in system. Higher latency naturally increases the required concurrency capacity for the same throughput. If average request time doubles, the number of in-flight requests at the same throughput also doubles.</p>
+
+        <h2 id="s8">08. Admission control vs queueing</h2>
+        <p>These concepts are distinct and must not be conflated:</p>
+        <ul>
+          <li><strong>Rate budget</strong> — can downstream capacity afford the work?</li>
+          <li><strong>Concurrency limit</strong> — can we run more work now?</li>
+          <li><strong>Admission control</strong> — should this request enter the system?</li>
+          <li><strong>Queue</strong> — where does admitted but not currently executable work wait?</li>
+          <li><strong>Router</strong> — where should admitted work execute?</li>
+        </ul>
+
+        <h2 id="s9">09. Unbounded queue failure</h2>
+        <p>When incoming traffic exceeds processing capacity, an unbounded queue grows without limit. Memory increases. Queue wait increases. Requests become useless before they execute. Clients time out and retry, amplifying load. The system technically remains alive, but service quality has collapsed.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/queue-collapse.svg" role="img" aria-label="Unbounded queue vs bounded admission" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 3 — Unbounded queue collapse vs bounded admission.</figcaption>
+        </figure>
+
+        <div class="article-callout architecture-decision">
+          <span class="callout-label">Architecture Decision</span>
+          <p>A queue hides overload. It does not create capacity. Bounded admission sacrifices some admission rate in exchange for bounded memory and bounded queue growth.</p>
+        </div>
+
+        <h2 id="s10">10. Bounded queues and workload classes</h2>
+        <div class="code-block">
+          <span class="code-caption">Illustrative — bounded queue</span>
+<pre><code>queue = asyncio.Queue(maxsize=N)
+
+# When full, put() blocks or raises QueueFull
+# depending on policy</code></pre>
+        </div>
+        <p>When the queue is full, policies include: reject, defer to async processing, drop low-priority work, route elsewhere, apply backpressure, or degrade feature/model. No single strategy is universally correct.</p>
+        <p>One queue may also be wrong. Different workload classes have different priorities:</p>
+        <table class="article-table">
+          <thead><tr><th>Class</th><th>Priority</th></tr></thead>
+          <tbody>
+            <tr><td>Interactive</td><td>Latency</td></tr>
+            <tr><td>Background</td><td>Throughput</td></tr>
+            <tr><td>Offline batch</td><td>Cost / completion</td></tr>
+            <tr><td>Agent / tool work</td><td>Deadline / workflow state</td></tr>
+          </tbody>
+        </table>
+        <p>Production systems may benefit from separate queues or scheduling classes per workload type.</p>
+
+        <h2 id="s11">11. Multi-tenant fairness</h2>
+        <p>Without isolation, a noisy neighbor can degrade service for everyone. Tenant A sends many long-context requests; Tenant B sends short interactive requests. Without per-tenant budgets, Tenant A can consume TPM, queue space, concurrency, and cost budget, degrading Tenant B's experience.</p>
+        <p>Isolation mechanisms include: global budget, per-tenant budget, per-model budget, and optional priority or weighting. A full fair scheduler is not always necessary — per-tenant token and concurrency ceilings often suffice.</p>
+
+        <h2 id="s12">12. Deadlines</h2>
+        <p>A <strong>timeout</strong> is usually local to an operation. A <strong>deadline</strong> describes the maximum useful lifetime of the entire request. These are not the same thing.</p>
+        <p>Example: a 20-second total deadline. Queue wait consumes 4 seconds. The provider attempt consumes 10 seconds. Only 6 seconds remain. The retry decision must use the remaining budget, not a fresh independent timeout.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/deadline-budget.svg" role="img" aria-label="Deadline budget across the pipeline" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 4 — Deadline budget. Remaining time shrinks across the pipeline.</figcaption>
+        </figure>
+
+        <p>Do not give every layer an independent 60-second timeout. That produces a worst-case of 60 + 60 + 60 + 60 seconds — far beyond any useful request lifetime. Propagate the deadline and let each layer use the remaining budget.</p>
+
+        <h3>Timeout types in streaming systems</h3>
+        <p>Streaming systems need more than one timeout concept:</p>
+        <ul>
+          <li><strong>Connection timeout</strong> — establishing the connection</li>
+          <li><strong>Queue timeout</strong> — waiting for admission</li>
+          <li><strong>TTFT timeout</strong> — waiting for the first token</li>
+          <li><strong>Inter-token timeout</strong> — gap between streamed tokens</li>
+          <li><strong>Provider request timeout</strong> — the overall provider call</li>
+          <li><strong>Overall deadline</strong> — the request's useful lifetime</li>
+        </ul>
+        <p>A stream can connect successfully, return the first token quickly, then stall midway. That is a different failure from connection failure, and it requires a different timeout.</p>
+
+        <h2 id="s13">13. Retry classification</h2>
+        <p>Not every error should be retried. A failure taxonomy:</p>
+        <table class="article-table">
+          <thead><tr><th>Error</th><th>Retry?</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>400 / malformed request</td><td>Usually no</td><td>Not solved by retry without changing input</td></tr>
+            <tr><td>Authentication failure</td><td>Usually no</td><td>Configuration or credential issue</td></tr>
+            <tr><td>Permission failure</td><td>Usually no</td><td>Not solved by blind retry</td></tr>
+            <tr><td>429 / throttling</td><td>Conditional</td><td>Only if provider semantics allow, deadline remains, retry budget remains</td></tr>
+            <tr><td>Provider 5xx</td><td>Potential</td><td>Retry candidate</td></tr>
+            <tr><td>Network reset</td><td>Potential</td><td>Retry candidate</td></tr>
+            <tr><td>Deadline exhausted</td><td>No</td><td>Do not retry</td></tr>
+            <tr><td>Partial streamed response</td><td>Special</td><td>Requires recovery logic, not blind retry</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="s14">14. Exponential backoff and jitter</h2>
+        <p>Without jitter, 100 failed requests all wait the same delay and retry simultaneously, creating synchronized spikes that keep the provider overloaded. With full jitter, retries spread across a time range.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/retry-jitter.svg" role="img" aria-label="Retry synchronization vs jitter" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 5 — Synchronized retry spikes vs dispersed jittered retries.</figcaption>
+        </figure>
+
+        <div class="code-block">
+          <span class="code-caption">Illustrative — deadline-aware retry with full jitter</span>
+<pre><code>import asyncio, random, time
+
+deadline = time.monotonic() + 20
+
+for attempt in range(MAX_ATTEMPTS):
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise DeadlineExceeded()
+
+    try:
+        return await provider_call(timeout=remaining)
+
+    except RetryableProviderError:
+        if not retry_budget.allow():
+            raise
+
+        max_sleep = min(BACKOFF_CAP, BACKOFF_BASE * (2 ** attempt))
+        sleep = random.uniform(0, max_sleep)
+
+        if sleep >= remaining:
+            raise DeadlineExceeded()
+
+        await asyncio.sleep(sleep)</code></pre>
+        </div>
+        <p>Production handling should also consider provider <code>Retry-After</code> semantics, per-provider error classification, request idempotency, and stream state.</p>
+
+        <h2 id="s15">15. Retry budget</h2>
+        <p>Suppose 100 original requests arrive during an incident. If all retry three times, downstream attempts can reach 400 total calls — exactly when downstream capacity is already unhealthy.</p>
+        <p>A retry budget caps the total retry traffic the system can generate. Once consumed: fail fast, degrade, fallback, or return an explicit error — rather than amplifying the incident.</p>
+        <div class="flow">Normal traffic:   ████████████████
+Allowed retries:  ███
+Once consumed:    fail fast / degrade / fallback</div>
+        <p>A retry budget is separate from a per-request retry count. A per-request limit of 3 retries still allows 100 requests × 3 = 300 retry attempts. A retry budget limits aggregate retry traffic regardless of how many individual requests are in flight.</p>
+
+        <h2 id="s16">16. Circuit breaker</h2>
+        <p>A circuit breaker stops sending traffic to an unhealthy downstream, giving it time to recover.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/circuit-breaker.svg" role="img" aria-label="Circuit breaker state machine" style="width:100%; max-width:680px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 6 — Circuit breaker states: CLOSED → OPEN → HALF-OPEN → CLOSED or OPEN.</figcaption>
+        </figure>
+
+        <p>Three states:</p>
+        <ul>
+          <li><strong>CLOSED</strong> — normal calls flow</li>
+          <li><strong>OPEN</strong> — requests fail fast or route elsewhere</li>
+          <li><strong>HALF-OPEN</strong> — limited probes test recovery</li>
+        </ul>
+        <p>A breaker should be scoped to provider, model, region, or deployment — not one global "LLM breaker." Different downstream targets can have different health states. Do not trip provider-health breakers for client-side malformed requests (4xx); those are not provider failures.</p>
+
+        <h2 id="s17">17. Capability-aware fallback</h2>
+        <p>Fallback is not "try OpenAI, except use another provider." It requires capability compatibility. A route may require streaming, tool calling, structured JSON output, specific context length, vision, region, latency target, price ceiling, or a specific model family.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/capability-routing.svg" role="img" aria-label="Capability-aware routing" style="width:100%; max-width:560px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 7 — Capability-aware routing. Requirements filter the candidate set before routing policy selects.</figcaption>
+        </figure>
+
+        <div class="engineering-note">
+          <span class="callout-label">Engineering Note</span>
+          <p>Fallback is a semantic decision, not only an availability decision. A provider that lacks tool-calling support cannot substitute for one that has it, regardless of health. The capability filter runs before the routing policy.</p>
+        </div>
+
+        <h2 id="s18">18. Cost-aware routing</h2>
+        <p>Cost can be estimated conceptually: <code>estimated_cost ≈ (estimated_input_tokens × input_price) + (reserved_output_tokens × output_price)</code>. But pricing rules differ by provider and model: cache discounts may reduce cost, batch APIs may use different pricing, and reasoning-token accounting may differ by model. Do not hardcode prices unless intentionally researched for a dated example.</p>
+        <p>Routing can consider capability, latency, health, cost, and region. Do not advocate "always choose cheapest" — the cheapest model may lack required capabilities or have unacceptable latency.</p>
+
+        <h2 id="s19">19. Batching terminology</h2>
+        <p>Three things called "batching" are not equivalent:</p>
+        <ul>
+          <li><strong>Inference engine batching</strong> — inside vLLM / SGLang. Continuous batching of decode iterations. Covered in the inference article.</li>
+          <li><strong>Application micro-batching</strong> — the application groups several units of work before sending downstream.</li>
+          <li><strong>Provider Batch API</strong> — asynchronous, offline provider-side processing with different pricing and completion semantics.</li>
+        </ul>
+        <p>These are not the same mechanism and should not be conflated.</p>
+
+        <h3>Offline batch workloads</h3>
+        <p>Workloads that may suit asynchronous batch processing: evaluation, data enrichment, classification, embeddings, large offline extraction, nightly processing. Poor fit: interactive chat, live copilot, low-latency agent execution. Do not hardcode vendor completion guarantees unless researched and dated.</p>
+
+        <h2 id="s20">20. Prompt caching</h2>
+        <p>Consider two requests that share a large stable prefix (system instructions, tool schemas, reference content) but differ only in the user question at the end. Most of the prefix is identical across requests.</p>
+        <div class="flow">Stable Prefix:  ██████████████████████████
+Dynamic Suffix: ██</div>
+        <p>The engineering principle: place stable, reusable context earlier where provider or runtime caching semantics benefit from common prefixes. Keep highly dynamic, request-specific information later where possible.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/prompt-cache-layout.svg" role="img" aria-label="Prompt cache layout" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 8 — Bad layout breaks prefix stability. Better layout places static content first, dynamic content last.</figcaption>
+        </figure>
+
+        <div class="provider-note">
+          <span class="callout-label">Provider Note</span>
+          <p>Provider cache matching rules, minimum cacheable tokens, TTL, cost discounts, and quota implications are provider-specific. Do not state exact values unless current official documentation confirms them. Write dated claims as "at the time of this article" with provider and model scope.</p>
+        </div>
+
+        <h3>Cache terminology — do not confuse</h3>
+        <ul>
+          <li><strong>KV cache</strong> — active model attention state (inference engine layer)</li>
+          <li><strong>Prefix cache</strong> — reuse of computed prefix KV state (inference engine layer)</li>
+          <li><strong>Provider prompt cache</strong> — provider-managed repeated-prefix compute/cache mechanism (API/provider layer)</li>
+          <li><strong>Semantic cache</strong> — application-level response reuse based on semantic similarity (application layer)</li>
+        </ul>
+
+        <h3>When prompt caching does not help</h3>
+        <ul>
+          <li>Prefix changes every request</li>
+          <li>Dynamic data placed very early in the prompt</li>
+          <li>Short prompts below provider/runtime thresholds</li>
+          <li>Small traffic volume with little prefix repetition</li>
+          <li>Cache TTL expired</li>
+          <li>Provider or model changed</li>
+          <li>Cache semantics differ from assumptions</li>
+        </ul>
+
+        <h2 id="s21">21. Semantic cache boundaries</h2>
+        <div class="flow">Request
+  ↓
+Embedding
+  ↓
+Similarity search
+  ↓
+Suitable cached response?
+  ├── yes → return response
+  └── no  → call LLM</div>
+        <p>Potentially useful for: stable FAQs, highly repetitive low-risk requests, expensive repeated generation. Potentially dangerous for: personalized requests, time-sensitive requests, authorization-dependent responses, agent actions, rapidly changing knowledge, high-stakes outputs, context-rich conversation.</p>
+        <div class="article-callout architecture-decision">
+          <span class="callout-label">Architecture Decision</span>
+          <p>Semantic similarity is not semantic equivalence. A request that is semantically similar to a cached response may differ in authorization, personalization, temporal context, or required precision. High-risk use cases should generally avoid careless semantic reuse.</p>
+        </div>
+
+        <h2 id="s22">22. Streaming reliability</h2>
+        <p>The naive implementation accumulates the full response in memory:</p>
+        <div class="code-block">
+          <span class="code-caption">Naive — unbounded accumulation</span>
+<pre><code>full_response = ""
+async for chunk in provider_stream:
+    full_response += chunk</code></pre>
+        </div>
+        <p>Under long outputs × many concurrent streams × slow consumers, memory can grow significantly. The broader problem is unbounded buffered state, not string concatenation specifically.</p>
+
+        <h3>Bounded streaming pipeline</h3>
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/stream-pipeline.svg" role="img" aria-label="Bounded streaming pipeline" style="width:100%; max-width:680px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 9 — Bounded streaming pipeline. Backpressure propagates when the consumer cannot keep up.</figcaption>
+        </figure>
+
+        <div class="code-block">
+          <span class="code-caption">Illustrative — bounded stream buffering</span>
+<pre><code>queue = asyncio.Queue(maxsize=32)
+
+async def producer():
+    async for chunk in provider_stream():
+        await queue.put(chunk)  # blocks when full
+
+async def consumer():
+    while True:
+        chunk = await queue.get()
+        try:
+            await persist_chunk(chunk)
+            yield chunk
+        finally:
+            queue.task_done()</code></pre>
+        </div>
+        <p><code>await queue.put()</code> becomes backpressure when the consumer cannot keep up. This is not production-ready as-is — it demonstrates the mechanism, not a complete streaming server.</p>
+
+        <h3>Three streaming failure types</h3>
+        <ul>
+          <li><strong>Client failure</strong> — provider may still be generating. Cancel upstream? Continue and persist result? Depends on workload.</li>
+          <li><strong>Application worker failure</strong> — provider may still be alive but our proxy process disappears. If stream state lives only in memory, delivery state is lost.</li>
+          <li><strong>Provider stream failure</strong> — upstream generation itself terminates. Fundamentally different from client or worker failure.</li>
+        </ul>
+
+        <h2 id="s23">23. Delivery resume vs generation resume</h2>
+        <p>This distinction is critical.</p>
+        <p><strong>Delivery resume</strong> — generation completed or is still active. The system persisted chunks. The client disconnected. The client reconnects with a request ID and last sequence number. The server replays missing chunks and joins the live stream if still active. This is transport/delivery recovery.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/stream-resume.svg" role="img" aria-label="Stream delivery resume" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 10 — Delivery resume. Client reconnects with last_sequence_id and receives replayed chunks.</figcaption>
+        </figure>
+
+        <p><strong>Generation recovery</strong> — the provider-side generation itself failed. A generic external provider does not expose the model's exact internal decode or KV state for resumption at token N. Recovery may require restarting the request or creating a continuation using persisted context and output. This is a new generation and may diverge. Never claim generic provider streams can always resume generation exactly.</p>
+
+        <div class="engineering-note">
+          <span class="callout-label">Engineering Note</span>
+          <p>Delivery resume ≠ generation resume. Delivery resume replays persisted chunks. Generation recovery requires a new generation and may produce different tokens. These are different problems with different solutions.</p>
+        </div>
+
+        <h3>Durable stream record</h3>
+        <p>A conceptual persistence model for stream recovery:</p>
+        <table class="article-table">
+          <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>request_id</td><td>Correlate request across retries and reconnects</td></tr>
+            <tr><td>sequence_number</td><td>Order chunks within a stream</td></tr>
+            <tr><td>chunk</td><td>The streamed content</td></tr>
+            <tr><td>created_at</td><td>Timestamp</td></tr>
+            <tr><td>status</td><td>PENDING · RUNNING · COMPLETED · FAILED · CANCELLED</td></tr>
+            <tr><td>provider_request_id</td><td>Where available, for provider correlation</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Persistence options</h3>
+        <p>PostgreSQL, Redis Streams, Kafka, durable event stores, or object storage for large artifacts. Trade-offs: latency, durability, ordering, retention, fan-out, operational complexity. Given the broader portfolio, PostgreSQL may be used in examples where a relational durable record is sufficient. This is not a technology shootout.</p>
+
+        <h2 id="s24">24. Idempotency</h2>
+        <p>Even pure generation retries can duplicate cost. Tool and agent work can duplicate side effects. An idempotency key controls duplicate execution:</p>
+        <div class="flow">idempotency_key
+  ↓
+existing execution?
+  ├── yes → return / rejoin existing result
+  └── no  → execute and store result</div>
+        <p>Store conceptually: idempotency key, request hash, state, and result reference. On a duplicate request with the same key, return or rejoin the existing execution. On a conflicting payload with the same key, reject.</p>
+        <div class="provider-note">
+          <span class="callout-label">Provider Note</span>
+          <p>Idempotency helps control duplicate execution. It does not guarantee exactly-once execution across distributed systems. Network partitions, process crashes, and partial completions can still produce edge cases. Design for at-least-once with idempotency, not for strict exactly-once.</p>
+        </div>
+
+        <h2 id="s25">25. Bounded-memory design</h2>
+        <p>Suspicious structures to audit in an LLM API:</p>
+        <ul>
+          <li>Unbounded request queue</li>
+          <li>Unbounded stream buffer</li>
+          <li>Unbounded retry queue</li>
+          <li>Unbounded batch accumulator</li>
+          <li>Unbounded conversation state</li>
+          <li>Unbounded result aggregation</li>
+        </ul>
+        <p>Replace them with explicit limits: max queued requests, max concurrent requests, max prompt tokens, max output tokens, max stream chunks in RAM, max persistence batch size, max per-request retained state.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/bounded-memory.svg" role="img" aria-label="Bounded memory design" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 11 — Unbounded buffer grows indefinitely. Bounded queue applies backpressure.</figcaption>
+        </figure>
+
+        <div class="engineering-note">
+          <span class="callout-label">Engineering Note</span>
+          <p>Move large state through the system. Do not accumulate it indefinitely inside the process. Bounded memory is not a performance optimization — it is a reliability requirement.</p>
+        </div>
+
+        <h3>Backpressure</h3>
+        <p>End-to-end backpressure: database slows → persistence consumer slows → bounded queue fills → producer cannot enqueue → upstream read slows or request policy activates. Contrast with an unbounded queue that grows forever when the database slows. Exact upstream backpressure behavior depends on SDK, HTTP implementation, and provider. Do not claim every streaming API perfectly propagates TCP backpressure to model generation.</p>
+
+        <h2 id="s26">26. Operational guardrails</h2>
+        <p>Operational resource controls protect capacity, cost, and availability:</p>
+        <ul>
+          <li>Max input tokens · max output tokens · max payload bytes</li>
+          <li>Max concurrency per identity · max requests per period</li>
+          <li>Max daily token budget · max cost budget</li>
+          <li>Allowed models · maximum stream duration</li>
+          <li>Maximum tool / agent iterations where applicable</li>
+          <li>Tenant quota</li>
+        </ul>
+        <p>These are operational safety controls, not content moderation. Prompt injection, model alignment, harmful-content moderation, and jailbreak research deserve separate treatment.</p>
+
+        <h3>Abuse and cost amplification</h3>
+        <p>Examples of cost-amplification patterns: repeated max-context requests, repeated max-output requests, parallel requests from one identity, expensive model selection abuse, long-running streams, agent loops. Quotas and resource limits reduce cost-amplification risk. They do not solve all security or safety concerns.</p>
+
+        <h2 id="s27">27. Observability for the control layer</h2>
+        <p>Observability here is scoped to the reliability control layer — not the full LLMOps article. Track:</p>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <h4>Request</h4>
+            <ul><li>Count · success · error · latency</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Admission</h4>
+            <ul><li>Admitted · rejected · reason</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Token budget</h4>
+            <ul><li>Estimated · reserved · actual · estimation error</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Rate</h4>
+            <ul><li>RPM consumption · TPM consumption</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Queue</h4>
+            <ul><li>Depth · wait time · oldest request age</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Concurrency</h4>
+            <ul><li>Active calls · active streams</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Retry</h4>
+            <ul><li>Attempt count · retry rate · reason · budget consumption</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Circuit breaker</h4>
+            <ul><li>State · opens · half-open probes</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Routing</h4>
+            <ul><li>Selected provider · model · fallback count</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Cache</h4>
+            <ul><li>Prompt-cache hits · cached tokens · semantic-cache hit rate</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Stream</h4>
+            <ul><li>Active · client disconnects · provider disconnects · replay requests · buffer depth</li></ul>
+          </div>
+          <div class="metric-card">
+            <h4>Cost</h4>
+            <ul><li>Estimated · actual · by tenant · by model</li></ul>
+          </div>
+        </div>
+        <p>Where providers expose request IDs, retain them. Generate an internal request ID and correlate: internal_request_id, provider_request_id, tenant_id, attempt_id, stream_id. This helps reconstruct retries and fallbacks. Do not hardcode provider-specific header names until verified.</p>
+
+        <h2 id="s28">28. Reference architecture</h2>
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/llm-api-reliability/control-plane.svg" role="img" aria-label="Reference reliability architecture" style="width:100%;"></object>
+          <figcaption class="figure-caption">Figure 12 — Reference reliability architecture. Control plane, admission, bounded queue, routing, stream manager, durable state.</figcaption>
+        </figure>
+        <p>This is a reference architecture, not the only valid topology. The control plane holds RPM/TPM budgets, tenant quotas, cost budgets, provider health, circuit state, and route configuration. The data plane flows through gateway, identity, token estimation, admission, bounded queue, router, providers, stream manager, and durable state. Telemetry originates from every layer.</p>
+
+        <h2 id="s29">29. Benchmark methodology</h2>
+        <div class="measurement-note">
+          <span class="callout-label">Benchmark methodology — not results</span>
+          <p>This section defines how the reliability control layer should be benchmarked. No benchmark numbers are claimed. The experiment lab uses a mock provider so failure conditions can be tested without burning real API quota.</p>
+        </div>
+
+        <h3>Experiment 1 — RPM-only vs RPM+TPM</h3>
+        <div class="experiment-design">
+          <p class="exp-goal"><strong>Goal:</strong> Show why request-count limiting alone is insufficient for variable-sized LLM workloads.</p>
+          <p class="exp-label">Workload</p>
+          <ul><li>80% small requests, 20% large requests</li></ul>
+          <p class="exp-label">Compare</p>
+          <ul><li>A: RPM-only limiter · B: RPM + TPM limiter</li></ul>
+          <p class="exp-label">Measure</p>
+          <ul><li>Admitted · rejected · throttled downstream · token utilization · queue depth · p95 latency · successful throughput</li></ul>
+          <p class="exp-goal" style="margin-top:10px;"><strong>Hypothesis:</strong> Token-aware admission should better protect downstream token capacity under heterogeneous request sizes.</p>
+        </div>
+
+        <h3>Experiment 2 — Unbounded vs bounded queue</h3>
+        <div class="experiment-design">
+          <p class="exp-goal"><strong>Goal:</strong> Compare unbounded queue vs bounded queue with explicit admission under load above capacity.</p>
+          <p class="exp-label">Measure</p>
+          <ul><li>Process memory · queue depth · queue wait · successful completions · rejections · request latency</li></ul>
+          <p class="exp-goal" style="margin-top:10px;"><strong>Hypothesis:</strong> Bounded design sacrifices some admission rate for bounded memory and bounded queue growth.</p>
+        </div>
+
+        <h3>Experiment 3 — Retry synchronization</h3>
+        <div class="experiment-design">
+          <p class="exp-goal"><strong>Goal:</strong> Compare fixed retry delay vs exponential backoff with full jitter during a simulated provider outage.</p>
+          <p class="exp-label">Measure</p>
+          <ul><li>Attempts/sec over time · successful recovery · retry traffic · provider overload after recovery</li></ul>
+        </div>
+
+        <h3>Experiment 4 — Retry budget</h3>
+        <div class="experiment-design">
+          <p class="exp-goal"><strong>Goal:</strong> Compare unlimited retry vs bounded retry budget during a simulated outage.</p>
+          <p class="exp-label">Measure</p>
+          <ul><li>Downstream attempts · successful original requests · retry amplification · time to recover</li></ul>
+        </div>
+
+        <h3>Experiment 5 — Prompt cache structure</h3>
+        <div class="experiment-design">
+          <p class="exp-goal"><strong>Goal:</strong> Compare stable prefix + dynamic suffix vs dynamic content placed early, against a provider/runtime whose caching behavior can be measured.</p>
+          <p class="exp-label">Record if exposed</p>
+          <ul><li>Cached token count · uncached input tokens · latency · cost · quota behavior</li></ul>
+          <p class="exp-goal" style="margin-top:10px;">If real provider access is unavailable, keep as reproducible methodology only. Do not fabricate cached-token results.</p>
+        </div>
+
+        <h3>Experiment 6 — Stream delivery recovery</h3>
+        <div class="experiment-design">
+          <p class="exp-goal"><strong>Goal:</strong> Start streaming, persist numbered chunks, disconnect client, reconnect using request_id and last_sequence_id, replay missing chunks.</p>
+          <p class="exp-label">Measure</p>
+          <ul><li>Duplicate chunks · missing chunks · replay delay · buffer memory</li></ul>
+        </div>
+
+        <h3>Experiment 7 — Provider stream failure</h3>
+        <div class="experiment-design">
+          <p class="exp-goal"><strong>Goal:</strong> Cause mock provider to terminate mid-generation. Show that delivery replay recovers persisted chunks, but continuation after provider failure requires a new generation strategy.</p>
+        </div>
+
+        <h2 id="s30">30. System boundary</h2>
+        <div class="system-boundary">
+          <span class="callout-label">System Boundary</span>
+          <p>The reliable unit is not the model call. The reliable unit is the controlled execution around the model call. A production LLM API must continuously balance token capacity, request rate, concurrency, latency, memory, cost, and downstream health. Once those controls exist, the next operational question becomes: how do we observe request, model, retrieval, tool and agent behavior across the entire system?</p>
+        </div>
+
+        <div class="article-end">
+          <div class="next-article">
+            <p class="label">Next</p>
+            <p class="title">Private LLMOps for Multi-Agent Systems</p>
+            <p class="soon">OpenTelemetry · Langfuse · PostgreSQL · AWS · multi-agent traces · evaluations · production debugging</p>
+          </div>
+        </div>
+
+        <h2 id="refs">References</h2>
+        <div class="references">
+          <ol>
+            <li id="ref1">OpenAI. <em>Rate limits</em>. <a href="https://platform.openai.com/docs/guides/rate-limits" rel="noopener">platform.openai.com/docs/guides/rate-limits</a></li>
+            <li id="ref2">AWS. <em>Bedrock quotas and throttling</em>. <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/quotas.html" rel="noopener">docs.aws.amazon.com/bedrock</a></li>
+            <li id="ref3">Anthropic. <em>Prompt caching</em>. <a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching" rel="noopener">docs.anthropic.com/prompt-caching</a></li>
+            <li id="ref4">Google SRE. <em>Handling Overload</em>, in <em>Site Reliability Engineering</em>, Ch. 22. <a href="https://sre.google/sre-book/handling-overload/" rel="noopener">sre.google/sre-book/handling-overload</a></li>
+          </ol>
+        </div>
+
+      </article>
+
+      <aside class="toc" aria-label="Table of contents">
+        <button class="toc-toggle" type="button" aria-expanded="true">On this page</button>
+        <div class="toc-list">
+          <h2>Contents</h2>
+          <ol>
+            <li><a href="#s1" data-toc="s1">01. RPM is not enough</a></li>
+            <li><a href="#s2" data-toc="s2">02. Small vs large</a></li>
+            <li><a href="#s3" data-toc="s3">03. Token-aware admission</a></li>
+            <li><a href="#s4" data-toc="s4">04. Reservation & reconciliation</a></li>
+            <li><a href="#s5" data-toc="s5">05. Dual token bucket</a></li>
+            <li><a href="#s6" data-toc="s6">06. Adaptive limiting</a></li>
+            <li><a href="#s7" data-toc="s7">07. Concurrency</a></li>
+            <li><a href="#s8" data-toc="s8">08. Admission vs queueing</a></li>
+            <li><a href="#s9" data-toc="s9">09. Unbounded queue</a></li>
+            <li><a href="#s10" data-toc="s10">10. Bounded queues</a></li>
+            <li><a href="#s11" data-toc="s11">11. Multi-tenant</a></li>
+            <li><a href="#s12" data-toc="s12">12. Deadlines</a></li>
+            <li><a href="#s13" data-toc="s13">13. Retry classification</a></li>
+            <li><a href="#s14" data-toc="s14">14. Backoff + jitter</a></li>
+            <li><a href="#s15" data-toc="s15">15. Retry budget</a></li>
+            <li><a href="#s16" data-toc="s16">16. Circuit breaker</a></li>
+            <li><a href="#s17" data-toc="s17">17. Capability fallback</a></li>
+            <li><a href="#s18" data-toc="s18">18. Cost-aware routing</a></li>
+            <li><a href="#s19" data-toc="s19">19. Batching terminology</a></li>
+            <li><a href="#s20" data-toc="s20">20. Prompt caching</a></li>
+            <li><a href="#s21" data-toc="s21">21. Semantic cache</a></li>
+            <li><a href="#s22" data-toc="s22">22. Streaming reliability</a></li>
+            <li><a href="#s23" data-toc="s23">23. Delivery vs generation resume</a></li>
+            <li><a href="#s24" data-toc="s24">24. Idempotency</a></li>
+            <li><a href="#s25" data-toc="s25">25. Bounded memory</a></li>
+            <li><a href="#s26" data-toc="s26">26. Guardrails</a></li>
+            <li><a href="#s27" data-toc="s27">27. Observability</a></li>
+            <li><a href="#s28" data-toc="s28">28. Reference architecture</a></li>
+            <li><a href="#s29" data-toc="s29">29. Benchmark methodology</a></li>
+            <li><a href="#s30" data-toc="s30">30. System boundary</a></li>
+          </ol>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="shell">
+      <div class="footer-name">Avivek Dwivedi</div>
+      <div>Applied AI Engineer</div>
+      <div class="footer-links">
+        <a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub ↗</a>
+      </div>
+      <div style="margin-top:12px;">&copy; <span id="year">2026</span> Avivek Dwivedi</div>
+    </div>
+  </footer>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>

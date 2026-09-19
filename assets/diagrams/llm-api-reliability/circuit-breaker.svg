@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 360" width="680" height="360" role="img" aria-labelledby="cbTitle cbDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="cbTitle">Circuit breaker state machine</title>
+  <desc id="cbDesc">A circuit breaker cycles through three states. CLOSED: normal calls flow. Repeated relevant failures transition to OPEN. OPEN: requests fail fast or route elsewhere. After a cooldown, transition to HALF-OPEN. HALF-OPEN: limited probes test recovery. Success returns to CLOSED; failure returns to OPEN.</desc>
+
+  <style>
+    .closed { fill: #dafbe1; stroke: #2da44e; stroke-width: 1.5; rx: 8; ry: 8; }
+    .open { fill: #ffebe9; stroke: #ff8182; stroke-width: 1.5; rx: 8; ry: 8; }
+    .half { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1.5; rx: 8; ry: 8; }
+    .t { font-size: 14px; fill: #1f2328; text-anchor: middle; font-weight: 700; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.3; fill: none; }
+    .arrow { fill: #59636e; }
+  </style>
+
+  <rect class="closed" x="60" y="140" width="160" height="50"/>
+  <text class="t" x="140" y="171">CLOSED</text>
+
+  <rect class="open" x="430" y="140" width="160" height="50"/>
+  <text class="t" x="510" y="171">OPEN</text>
+
+  <rect class="half" x="260" y="30" width="160" height="50"/>
+  <text class="t" x="340" y="61">HALF-OPEN</text>
+
+  <!-- CLOSED -> OPEN -->
+  <path class="edge" d="M220,165 C300,165 350,165 430,165"/>
+  <polygon class="arrow" points="426,161 434,165 426,169" fill="#59636e"/>
+  <text class="lbl" x="325" y="155">repeated relevant failures</text>
+
+  <!-- OPEN -> HALF-OPEN -->
+  <path class="edge" d="M510,140 C510,100 480,80 420,65"/>
+  <polygon class="arrow" points="424,69 416,63 420,59" fill="#59636e"/>
+  <text class="lbl" x="490" y="100">cooldown</text>
+
+  <!-- HALF-OPEN -> CLOSED -->
+  <path class="edge" d="M260,55 C200,55 170,100 145,140"/>
+  <polygon class="arrow" points="149,136 141,142 143,148" fill="#59636e"/>
+  <text class="lbl" x="180" y="100">success</text>
+
+  <!-- HALF-OPEN -> OPEN -->
+  <path class="edge" d="M420,55 C460,55 490,100 505,140"/>
+  <polygon class="arrow" points="501,136 509,142 507,148" fill="#59636e"/>
+  <text class="lbl" x="475" y="100">failure</text>
+
+  <text class="lbl" x="340" y="250">Scope breaker to provider · model · region — not one global "LLM breaker"</text>
+  <text class="lbl" x="340" y="270">Do not trip provider-health breakers for client-side malformed requests (4xx)</text>
+</svg>

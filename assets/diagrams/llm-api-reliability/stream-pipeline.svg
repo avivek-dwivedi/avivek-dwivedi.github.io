@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 400" width="680" height="400" role="img" aria-labelledby="spTitle spDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="spTitle">Bounded streaming pipeline</title>
+  <desc id="spDesc">A provider stream feeds into a bounded queue. A stream consumer reads from the queue and delivers to the client while also persisting to durable storage. When the consumer cannot keep up, the bounded queue applies backpressure to the producer rather than growing indefinitely.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .bqueue { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1.5; rx: 6; ry: 6; }
+    .persist { fill: #f6f8fa; stroke: #8957e5; stroke-width: 1; rx: 6; ry: 6; }
+    .client { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 6; ry: 6; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.3; fill: none; }
+    .back { stroke: #ff8182; stroke-width: 1.2; fill: none; stroke-dasharray: 4 3; }
+  </style>
+
+  <rect class="box" x="260" y="20" width="160" height="36"/><text class="t" x="340" y="43">Provider stream</text>
+  <line class="edge" x1="340" y1="56" x2="340" y2="82"/><polygon class="edge" points="336,78 340,86 344,78" fill="#59636e"/>
+
+  <rect class="bqueue" x="240" y="88" width="200" height="44"/>
+  <text class="t" x="340" y="115">Bounded Queue (maxsize)</text>
+  <line class="edge" x1="340" y1="132" x2="340" y2="158"/><polygon class="edge" points="336,154 340,162 344,154" fill="#59636e"/>
+
+  <rect class="box" x="250" y="164" width="180" height="36"/><text class="t" x="340" y="187">Stream consumer</text>
+
+  <line class="edge" x1="290" y1="200" x2="180" y2="240"/><polygon class="edge" points="184,236 176,244 180,248" fill="#59636e"/>
+  <line class="edge" x1="390" y1="200" x2="500" y2="240"/><polygon class="edge" points="496,236 504,244 500,248" fill="#59636e"/>
+
+  <rect class="client" x="100" y="246" width="140" height="36"/><text class="t" x="170" y="269">Client</text>
+  <rect class="persist" x="440" y="246" width="160" height="36"/><text class="t" x="520" y="269" style="fill:#8957e5">Durable persistence</text>
+
+  <!-- Backpressure -->
+  <path class="back" d="M250,110 C180,110 120,110 120,60 C120,40 260,40 340,56"/>
+  <text class="lbl" x="120" y="135" style="fill:#a53737">backpressure</text>
+
+  <text class="lbl" x="340" y="320">await queue.put() blocks when consumer cannot keep up</text>
+  <text class="lbl" x="340" y="340">persist + stream — not buffer + buffer + buffer</text>
+  <text class="lbl" x="340" y="370">backpressure propagates upstream instead of growing memory</text>
+</svg>

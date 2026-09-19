@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" width="760" height="420" role="img" aria-labelledby="pcTitle pcDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="pcTitle">Prompt cache layout — stable prefix vs dynamic</title>
+  <desc id="pcDesc">Left: a bad layout places dynamic content (timestamp, tenant context) before static content, breaking prefix stability. Right: a better layout places static system instructions, tool schemas, and stable reference content first, then dynamic tenant/request context and the user request last, maximizing prefix cacheability.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 4; ry: 4; }
+    .dyn { fill: #ffebe9; stroke: #ff8182; stroke-width: 1; rx: 4; ry: 4; }
+    .stat { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 4; ry: 4; }
+    .t { font-size: 11px; fill: #1f2328; text-anchor: middle; }
+    .head { font-size: 13px; fill: #1f2328; text-anchor: middle; font-weight: 700; }
+    .lbl { font-size: 10px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1; fill: none; }
+  </style>
+
+  <text class="head" x="190" y="25">Bad for prefix stability</text>
+  <text class="head" x="570" y="25">Better prefix stability</text>
+  <line class="edge" x1="380" y1="10" x2="380" y2="400"/>
+
+  <!-- Left bad -->
+  <rect class="dyn" x="50" y="45" width="280" height="32"/><text class="t" x="190" y="65">Dynamic timestamp</text>
+  <rect class="dyn" x="50" y="82" width="280" height="32"/><text class="t" x="190" y="102">Dynamic tenant context</text>
+  <rect class="stat" x="50" y="119" width="280" height="32"/><text class="t" x="190" y="139">Static system instruction</text>
+  <rect class="stat" x="50" y="156" width="280" height="32"/><text class="t" x="190" y="176">Tool schemas</text>
+  <rect class="stat" x="50" y="193" width="280" height="32"/><text class="t" x="190" y="213">Reference content</text>
+  <rect class="dyn" x="50" y="230" width="280" height="32"/><text class="t" x="190" y="250">User request</text>
+  <text class="lbl" x="190" y="300">prefix changes every request</text>
+  <text class="lbl" x="190" y="320">cache cannot match</text>
+
+  <!-- Right good -->
+  <rect class="stat" x="430" y="45" width="280" height="32"/><text class="t" x="570" y="65">Static system instruction</text>
+  <rect class="stat" x="430" y="82" width="280" height="32"/><text class="t" x="570" y="102">Tool schemas</text>
+  <rect class="stat" x="430" y="119" width="280" height="32"/><text class="t" x="570" y="139">Stable reference content</text>
+  <rect class="dyn" x="430" y="156" width="280" height="32"/><text class="t" x="570" y="176">Dynamic tenant/request context</text>
+  <rect class="dyn" x="430" y="193" width="280" height="32"/><text class="t" x="570" y="213">User request</text>
+  <text class="lbl" x="570" y="270">stable prefix ████████████████</text>
+  <text class="lbl" x="570" y="290">dynamic suffix ██</text>
+  <text class="lbl" x="570" y="320">prefix can be cached</text>
+
+  <text class="lbl" x="380" y="385">Conceptual layout — provider matching rules differ</text>
+</svg>

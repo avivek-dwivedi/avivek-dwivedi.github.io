@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 720" width="820" height="720" role="img" aria-labelledby="cpTitle cpDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="cpTitle">Reference reliability architecture — control plane</title>
+  <desc id="cpDesc">A reference architecture for an LLM API reliability control plane. A control plane holds RPM/TPM budgets, tenant quotas, cost budgets, provider health, circuit state, and route configuration. Client traffic flows through API gateway, identity/tenant, token estimator, admission controller (checking RPM, TPM, concurrency, quota, cost, deadline), bounded queue, model/provider router to providers or internal LLM. A stream manager delivers to the client and persists to durable state for resume and replay. Telemetry originates from every layer.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .ctrl { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1.5; rx: 6; ry: 6; }
+    .admit { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1.5; rx: 6; ry: 6; }
+    .stream { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 6; ry: 6; }
+    .durable { fill: #f6f8fa; stroke: #8957e5; stroke-width: 1; rx: 6; ry: 6; }
+    .prov { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 4; ry: 4; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .ta { font-size: 13px; fill: #0a66c2; text-anchor: middle; font-weight: 700; }
+    .tw { font-size: 12px; fill: #9a6700; text-anchor: middle; font-weight: 600; }
+    .tg { font-size: 12px; fill: #1a7f37; text-anchor: middle; font-weight: 600; }
+    .lbl { font-size: 10px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+    .tel { stroke: #8957e5; stroke-width: 1; fill: none; stroke-dasharray: 3 2; }
+  </style>
+
+  <!-- Control plane -->
+  <rect class="ctrl" x="240" y="15" width="340" height="80"/>
+  <text class="ta" x="410" y="38">CONTROL PLANE</text>
+  <text class="lbl" x="410" y="56">RPM / TPM budgets · Tenant quotas · Cost budgets</text>
+  <text class="lbl" x="410" y="72">Provider health · Circuit state · Route configuration</text>
+
+  <line class="edge" x1="410" y1="95" x2="410" y2="118"/>
+  <polygon class="edge" points="406,114 410,122 414,114" fill="#59636e"/>
+
+  <rect class="box" x="340" y="125" width="140" height="34"/><text class="t" x="410" y="147">Client</text>
+  <line class="edge" x1="410" y1="159" x2="410" y2="174"/><polygon class="edge" points="406,170 410,178 414,170" fill="#59636e"/>
+
+  <rect class="box" x="330" y="180" width="160" height="34"/><text class="t" x="410" y="202">API Gateway</text>
+  <line class="edge" x1="410" y1="214" x2="410" y2="229"/><polygon class="edge" points="406,225 410,233 414,225" fill="#59636e"/>
+
+  <rect class="box" x="330" y="235" width="160" height="34"/><text class="t" x="410" y="257">Identity / Tenant</text>
+  <line class="edge" x1="410" y1="269" x2="410" y2="284"/><polygon class="edge" points="406,280 410,288 414,280" fill="#59636e"/>
+
+  <rect class="box" x="320" y="290" width="180" height="34"/><text class="t" x="410" y="312">Token Estimator</text>
+  <line class="edge" x1="410" y1="324" x2="410" y2="339"/><polygon class="edge" points="406,335 410,343 414,335" fill="#59636e"/>
+
+  <!-- Admission controller -->
+  <rect class="admit" x="270" y="345" width="280" height="60"/>
+  <text class="tw" x="410" y="367">Admission Controller</text>
+  <text class="lbl" x="410" y="383">RPM · TPM · concurrency · quota · cost · deadline</text>
+  <line class="edge" x1="410" y1="405" x2="410" y2="420"/><polygon class="edge" points="406,416 410,424 414,416" fill="#59636e"/>
+
+  <rect class="box" x="330" y="426" width="160" height="34"/><text class="t" x="410" y="448">Bounded Queue</text>
+  <line class="edge" x1="410" y1="460" x2="410" y2="475"/><polygon class="edge" points="406,471 410,479 414,471" fill="#59636e"/>
+
+  <rect class="box" x="310" y="481" width="200" height="34"/><text class="t" x="410" y="503">Model / Provider Router</text>
+
+  <!-- Branch to providers -->
+  <line class="edge" x1="410" y1="515" x2="410" y2="535"/>
+  <line class="edge" x1="230" y1="535" x2="590" y2="535"/>
+  <line class="edge" x1="230" y1="535" x2="230" y2="555"/><polygon class="edge" points="226,551 230,559 234,551" fill="#59636e"/>
+  <line class="edge" x1="410" y1="535" x2="410" y2="555"/><polygon class="edge" points="406,551 410,559 414,551" fill="#59636e"/>
+  <line class="edge" x1="590" y1="535" x2="590" y2="555"/><polygon class="edge" points="586,551 590,559 594,551" fill="#59636e"/>
+
+  <rect class="prov" x="175" y="561" width="110" height="34"/><text class="t" x="230" y="583">Provider A</text>
+  <rect class="prov" x="355" y="561" width="110" height="34"/><text class="t" x="410" y="583">Provider B</text>
+  <rect class="prov" x="530" y="561" width="120" height="34"/><text class="t" x="590" y="583">Internal LLM</text>
+
+  <line class="edge" x1="230" y1="595" x2="230" y2="610"/>
+  <line class="edge" x1="410" y1="595" x2="410" y2="610"/>
+  <line class="edge" x1="590" y1="595" x2="590" y2="610"/>
+  <line class="edge" x1="230" y1="610" x2="590" y2="610"/>
+  <line class="edge" x1="410" y1="610" x2="410" y2="625"/><polygon class="edge" points="406,621 410,629 414,621" fill="#59636e"/>
+
+  <!-- Stream manager -->
+  <rect class="stream" x="330" y="631" width="160" height="34"/><text class="tg" x="410" y="653">Stream Manager</text>
+
+  <line class="edge" x1="360" y1="665" x2="200" y2="685"/><polygon class="edge" points="204,681 196,689 204,691" fill="#59636e"/>
+  <line class="edge" x1="460" y1="665" x2="620" y2="685"/><polygon class="edge" points="616,681 624,689 616,691" fill="#59636e"/>
+
+  <rect class="box" x="150" y="690" width="100" height="26"/><text class="t" x="200" y="707">Client</text>
+  <rect class="durable" x="570" y="690" width="120" height="26"/><text class="t" x="630" y="707" style="fill:#8957e5">Durable State</text>
+  <text class="lbl" x="630" y="725">Resume / Replay</text>
+
+  <!-- Telemetry lines -->
+  <line class="tel" x1="620" y1="367" x2="700" y2="367"/>
+  <line class="tel" x1="620" y1="448" x2="700" y2="448"/>
+  <line class="tel" x1="620" y1="503" x2="700" y2="503"/>
+  <line class="tel" x1="620" y1="653" x2="700" y2="653"/>
+  <text class="lbl" x="750" y="450" style="fill:#8957e5">Telemetry</text>
+</svg>

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 460" width="560" height="460" role="img" aria-labelledby="crTitle crDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="crTitle">Capability-aware routing</title>
+  <desc id="crDesc">A request carries requirements: streaming, tools, structured JSON, context length, vision, region, budget. A capability filter evaluates candidate providers or models and produces a healthy candidate set. A routing policy then selects the final provider or model based on latency, cost, and other factors.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .req { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 4; ry: 4; }
+    .filter { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1.5; rx: 6; ry: 6; }
+    .set { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 6; ry: 6; }
+    .policy { fill: #f6f8fa; stroke: #8957e5; stroke-width: 1; rx: 6; ry: 6; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .head { font-size: 13px; fill: #1f2328; text-anchor: middle; font-weight: 600; }
+    .edge { stroke: #59636e; stroke-width: 1.3; fill: none; }
+  </style>
+
+  <text class="head" x="280" y="25">Request Requirements</text>
+
+  <rect class="req" x="40" y="40" width="100" height="28"/><text class="t" x="90" y="58">Streaming</text>
+  <rect class="req" x="150" y="40" width="80" height="28"/><text class="t" x="190" y="58">Tools</text>
+  <rect class="req" x="240" y="40" width="80" height="28"/><text class="t" x="280" y="58">JSON</text>
+  <rect class="req" x="330" y="40" width="80" height="28"/><text class="t" x="370" y="58">Context</text>
+  <rect class="req" x="420" y="40" width="80" height="28"/><text class="t" x="460" y="58">Vision</text>
+  <rect class="req" x="40" y="75" width="100" height="28"/><text class="t" x="90" y="93">Region</text>
+  <rect class="req" x="150" y="75" width="100" height="28"/><text class="t" x="200" y="93">Budget</text>
+
+  <line class="edge" x1="280" y1="110" x2="280" y2="140"/>
+  <polygon class="edge" points="276,136 280,144 284,136" fill="#59636e"/>
+
+  <rect class="filter" x="180" y="145" width="200" height="40"/><text class="t" x="280" y="170">Capability Filter</text>
+  <line class="edge" x1="280" y1="185" x2="280" y2="215"/><polygon class="edge" points="276,211 280,219 284,211" fill="#59636e"/>
+
+  <rect class="set" x="180" y="220" width="200" height="40"/><text class="t" x="280" y="245">Healthy Candidate Set</text>
+  <line class="edge" x1="280" y1="260" x2="280" y2="290"/><polygon class="edge" points="276,286 280,294 284,286" fill="#59636e"/>
+
+  <rect class="policy" x="180" y="295" width="200" height="40"/><text class="t" x="280" y="320">Routing policy</text>
+  <line class="edge" x1="280" y1="335" x2="280" y2="365"/><polygon class="edge" points="276,361 280,369 284,361" fill="#59636e"/>
+
+  <rect class="box" x="180" y="370" width="200" height="40"/><text class="t" x="280" y="395">Provider / Model</text>
+
+  <text class="lbl" x="280" y="440">Fallback is a semantic decision, not only an availability decision</text>
+</svg>
