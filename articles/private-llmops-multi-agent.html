@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private LLMOps for Multi-Agent Systems | Avivek Dwivedi</title>
+  <meta name="description" content="Designing end-to-end observability with OpenTelemetry, Langfuse, AWS and durable telemetry pipelines for production LLM and multi-agent systems.">
+  <link rel="canonical" href="https://avivek-dwivedi.github.io/articles/private-llmops-multi-agent.html">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Private LLMOps for Multi-Agent Systems | Avivek Dwivedi">
+  <meta property="og:description" content="Designing end-to-end observability with OpenTelemetry, Langfuse, AWS and durable telemetry pipelines.">
+  <meta property="og:url" content="https://avivek-dwivedi.github.io/articles/private-llmops-multi-agent.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Private LLMOps for Multi-Agent Systems",
+    "description": "Designing end-to-end observability with OpenTelemetry, Langfuse, AWS and durable telemetry pipelines for production LLM and multi-agent systems.",
+    "author": { "@type": "Person", "name": "Avivek Dwivedi", "url": "https://avivek-dwivedi.github.io/" },
+    "publisher": { "@type": "Person", "name": "Avivek Dwivedi", "url": "https://avivek-dwivedi.github.io/" },
+    "mainEntityOfPage": { "@type": "WebPage", "@id": "https://avivek-dwivedi.github.io/articles/private-llmops-multi-agent.html" },
+    "articleSection": "AI Infrastructure / LLMOps",
+    "keywords": ["LLMOps", "OpenTelemetry", "Langfuse", "multi-agent", "observability", "traces", "evaluations", "AWS", "context propagation", "telemetry", "cost attribution", "latency attribution"],
+    "dateModified": "2026-09-20"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#article-main">Skip to content</a>
+
+  <nav class="nav" aria-label="Primary">
+    <span class="nav-brand"><a href="/">AVIVEK</a></span>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/#systems">Systems</a></li>
+      <li><a href="/#engineering">Engineering</a></li>
+      <li><a href="/#writing">Writing</a></li>
+      <li><a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <main id="article-main">
+    <div class="shell">
+      <div class="article-hero">
+        <a class="back-home" href="/">← Back to home</a>
+        <p class="eyebrow">AI Infrastructure / LLMOps</p>
+        <h1>Private LLMOps for Multi-Agent Systems</h1>
+        <p class="subtitle">Designing end-to-end observability with OpenTelemetry, Langfuse, AWS and durable telemetry pipelines.</p>
+        <div class="article-meta">
+          <span>Avivek Dwivedi</span>
+          <span class="dot">·</span>
+          <span class="tag tag-accent">Advanced</span>
+          <span class="dot">·</span>
+          <span>Updated Sep 2026</span>
+          <span class="dot">·</span>
+          <span>Draft — Article 04</span>
+        </div>
+        <div class="meta" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <span class="tag">OpenTelemetry</span>
+          <span class="tag">Langfuse</span>
+          <span class="tag">Multi-Agent Traces</span>
+          <span class="tag">Context Propagation</span>
+          <span class="tag">Evaluations</span>
+          <span class="tag">Cost Attribution</span>
+          <span class="tag">AWS</span>
+          <span class="tag">Telemetry Pipelines</span>
+        </div>
+        <p class="opening">A user request completes in 38 seconds. The HTTP response is 200. CPU looks normal. The model provider is healthy. But the answer is wrong, and the latency is unacceptable. The workflow contained a supervisor, a planner, a retrieval step, a search tool, a research agent, a validation agent, and a final LLM call. Without end-to-end traces, "38 seconds" tells us almost nothing. This article derives the observability architecture that makes a workflow like this reconstructable — without making observability itself a production failure.</p>
+      </div>
+    </div>
+
+    <div class="article-shell">
+      <article class="article-body">
+
+        <h2 id="s1">01. The investigation: 38 seconds, 200 OK, wrong answer</h2>
+        <p>A user submits a support query. The API returns <code>200 OK</code> after 38 seconds. The infrastructure dashboard shows normal CPU and memory. The model provider reports no outages. But the answer the user received is incorrect, and 38 seconds is far beyond the acceptable latency budget.</p>
+        <p>The workflow behind this request was not a single LLM call. It was a multi-agent pipeline:</p>
+        <div class="flow">Supervisor Agent
+→ Planner Agent
+→ Retrieval
+→ Search Tool
+→ Research Agent
+→ Validation Agent
+→ Final LLM Call</div>
+        <p>To debug this, we need to know which step dominated latency, which tool failed, which retrieval result influenced the final generation, which model was used, and whether any retries occurred. Total latency and a status code cannot answer any of these questions.</p>
+
+        <div class="flow">Illustrative trace — workflow-7f91
+
+Supervisor                  38.2s
+│
+├─ Planner Agent             4.1s
+│  └─ LLM                    3.8s
+│
+├─ Research Agent           22.7s
+│  ├─ Retrieval              0.8s
+│  ├─ LLM                    5.1s
+│  ├─ Search Tool           11.4s
+│  └─ LLM                    5.0s
+│
+├─ Validation Agent          8.6s
+│  ├─ LLM                    3.2s
+│  └─ Tool                   5.0s
+│
+└─ Final Generation          2.4s</div>
+        <p class="article-callout" style="border-left-color: var(--warn-border); background: var(--warn-bg);">
+          <span class="callout-label" style="color: #9a6700;">Illustrative — not measured</span>
+          The trace above is a conceptual illustration. These are not production measurements. The structure demonstrates how a single workflow decomposes into operations whose individual latency and status must be independently observable.
+        </p>
+        <p>With this trace structure, the investigation changes. The Search Tool consumed 11.4 seconds — nearly a third of total latency. The Validation Agent's tool took 5 seconds. The answer might be wrong because retrieval returned poor context. These are hypotheses we can now form and test because the trace preserves causality, not just an aggregate number.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/multi-agent-execution.svg" role="img" aria-label="Multi-agent execution from one user request" style="width:100%; max-width:520px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 1 — One user request fans out into many operations across agents, models, tools and retrieval.</figcaption>
+        </figure>
+
+        <div class="engineering-note">
+          <span class="callout-label">Central Question</span>
+          <p>When one user request becomes several agents, LLM calls, retrieval operations, tool executions, retries and handoffs, how do we reconstruct what actually happened <strong>without making observability itself a production failure?</strong></p>
+        </div>
+
+        <h2 id="s2">02. Why normal monitoring is insufficient</h2>
+        <p>A standard API request can be observable through request latency, status code, CPU, memory, and logs. For a multi-agent AI workflow, this is insufficient. A production LLM system needs to answer:</p>
+        <ul>
+          <li>Which agent ran?</li>
+          <li>Which agent called which model?</li>
+          <li>Which model, provider, and version was used?</li>
+          <li>Which prompt version was used?</li>
+          <li>Which retrieval step influenced the result?</li>
+          <li>Which tool was called? Which tool failed?</li>
+          <li>Was there a retry?</li>
+          <li>Which agent consumed the most tokens?</li>
+          <li>Which operation dominated latency?</li>
+          <li>Which workflow cost the most?</li>
+          <li>Was the response good?</li>
+          <li>Which evaluation score belongs to which trace?</li>
+          <li>Did telemetry fail? Did observability add latency or memory pressure?</li>
+        </ul>
+        <p>None of these questions can be answered by infrastructure metrics alone. The problem is no longer just application monitoring. It is <strong>execution-level observability across an AI workflow</strong>.</p>
+
+        <h2 id="s3">03. Metrics vs logs vs traces vs evaluations</h2>
+        <p>Before designing the observability architecture, we need a strong conceptual distinction between four signals. These are not interchangeable.</p>
+
+        <div class="metric-grid">
+          <div class="metric-card">
+            <h4>Metrics</h4>
+            <p style="font-size:13px; color:var(--text-soft); margin:0 0 6px;"><em>"What is happening across the system?"</em></p>
+            <ul>
+              <li>p95 latency</li>
+              <li>error rate</li>
+              <li>token usage</li>
+              <li>cost/hour</li>
+              <li>requests/sec</li>
+            </ul>
+          </div>
+          <div class="metric-card">
+            <h4>Logs</h4>
+            <p style="font-size:13px; color:var(--text-soft); margin:0 0 6px;"><em>"What event happened?"</em></p>
+            <ul>
+              <li>tool timeout</li>
+              <li>worker restarted</li>
+              <li>provider 429</li>
+              <li>invalid tool response</li>
+            </ul>
+          </div>
+          <div class="metric-card">
+            <h4>Traces</h4>
+            <p style="font-size:13px; color:var(--text-soft); margin:0 0 6px;"><em>"What happened to this specific workflow?"</em></p>
+            <ul>
+              <li>agent → model</li>
+              <li>→ retrieval → tool</li>
+              <li>→ another agent</li>
+              <li>→ response</li>
+            </ul>
+          </div>
+          <div class="metric-card">
+            <h4>Evaluations</h4>
+            <p style="font-size:13px; color:var(--text-soft); margin:0 0 6px;"><em>"Was the AI output actually good?"</em></p>
+            <ul>
+              <li>correctness</li>
+              <li>groundedness</li>
+              <li>tool correctness</li>
+              <li>trajectory quality</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="article-callout">
+          <span class="callout-label">Core Principle</span>
+          <p>An AI system can be <strong>infrastructure-healthy</strong> and still be <strong>behaviorally wrong</strong>. Metrics tell you the system is up. Traces tell you what it did. Evaluations tell you whether what it did was correct.</p>
+        </div>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/observability-signals.svg" role="img" aria-label="Four observability signals" style="width:100%; max-width:640px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 2 — Four observability signals answer fundamentally different questions. Not all observability platforms model them identically.</figcaption>
+        </figure>
+
+        <h2 id="s4">04. The unit of observability</h2>
+        <p>To build a coherent observability system, we need a clear model of what we are observing. The exact terminology differs between OpenTelemetry and Langfuse, so we define both.</p>
+        <table class="article-table">
+          <thead><tr><th>Concept</th><th>OpenTelemetry</th><th>Langfuse</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>One end-to-end execution</td><td>Trace</td><td>Trace</td><td>A single user/workflow execution from start to finish</td></tr>
+            <tr><td>One operation inside the workflow</td><td>Span</td><td>Observation (span type)</td><td>A meaningful operation: agent step, retrieval, tool call</td></tr>
+            <tr><td>One LLM/model invocation</td><td>Span (GenAI inference)</td><td>Observation (generation type)</td><td>A model call with token usage, model, provider metadata</td></tr>
+            <tr><td>One tool execution</td><td>Span (execute_tool)</td><td>Observation (span/tool type)</td><td>A tool call with name, status, duration, error</td></tr>
+            <tr><td>One retrieval/reranking operation</td><td>Span (retrieval)</td><td>Observation (span type)</td><td>A retrieval step with query, top-k, scores</td></tr>
+            <tr><td>A quality signal</td><td>Span attribute or metric</td><td>Score</td><td>An evaluation associated with a trace, observation, or dataset item</td></tr>
+          </tbody>
+        </table>
+
+        <div class="article-callout">
+          <span class="callout-label">Terminology Note</span>
+          <p>Langfuse models observations with types: <code>span</code>, <code>generation</code>, and <code>event</code>. OpenTelemetry uses <code>span</code> for all operations with GenAI semantic conventions to distinguish LLM inference, tool execution, and retrieval. Be precise about which system's terminology you are using. Mixing them carefully leads to confused queries.</p>
+        </div>
+
+        <h2 id="s5">05. A canonical multi-agent trace model</h2>
+        <p>Not all multi-agent systems follow the same shape, but a reference trace model helps establish what we expect to see. Consider a support workflow:</p>
+        <div class="flow">TRACE: support_workflow
+
+workflow
+│
+├─ orchestrator
+│
+├─ planner_agent
+│   └─ generation
+│
+├─ retrieval
+│   ├─ query transform
+│   ├─ vector search
+│   └─ rerank
+│
+├─ billing_agent
+│   ├─ generation
+│   └─ tool: lookup_order
+│
+└─ final_generation</div>
+        <p>This is a <strong>reference trace model</strong>, not a claim that all multi-agent systems must follow this hierarchy. Real workflows may involve fan-out (multiple parallel agents), handoffs (Agent A → B → C → A), or conditional branches. The key is that the trace preserves the parent-child relationships and workflow identity needed to reconstruct what happened.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/canonical-trace.svg" role="img" aria-label="Canonical multi-agent trace model" style="width:100%; max-width:560px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 3 — A reference trace hierarchy showing nested spans for workflow, agent, generation, retrieval, and tool operations.</figcaption>
+        </figure>
+
+        <h2 id="s6">06. OpenTelemetry as the instrumentation contract</h2>
+        <p>This is a major architecture decision. The design principle is to instrument around a <strong>telemetry contract</strong> rather than tightly coupling every application path to one observability dashboard.</p>
+        <div class="flow">Application
+      ↓
+OpenTelemetry instrumentation
+      ↓
+OTel pipeline
+      ├── AI observability backend
+      ├── infrastructure observability
+      └── future backend</div>
+        <p>Rather than:</p>
+        <div class="flow">Application
+      ↓
+vendor-specific instrumentation everywhere</div>
+
+        <div class="architecture-decision">
+          <span class="callout-label">Architecture Decision</span>
+          <p>Instrument around a standard telemetry contract (OpenTelemetry) so that the application's instrumentation is decoupled from any specific backend. This does not eliminate all vendor coupling — vendor-specific capabilities may still require specific instrumentation — but it prevents the application from being welded to one dashboard's proprietary SDK at every code path.</p>
+        </div>
+
+        <h3 id="s6a">Current OpenTelemetry GenAI semantic conventions</h3>
+        <p>OpenTelemetry has defined GenAI semantic conventions that cover LLM operations, agent operations, tool execution, and retrieval. As of the time of writing (September 2026), these conventions are maintained in the <a href="https://github.com/open-telemetry/semantic-conventions-genai" rel="noopener">open-telemetry/semantic-conventions-genai</a> repository and are at <strong>Development</strong> stability — meaning they may still evolve.</p>
+        <p>Key standard attributes defined by the GenAI conventions include:</p>
+        <table class="article-table">
+          <thead><tr><th>Attribute</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>gen_ai.operation.name</code></td><td>string</td><td>The operation: <code>chat</code>, <code>text_completion</code>, <code>generate_content</code>, <code>embeddings</code>, <code>execute_tool</code></td></tr>
+            <tr><td><code>gen_ai.provider.name</code></td><td>string</td><td>The provider: <code>openai</code>, <code>anthropic</code>, <code>aws.bedrock</code>, <code>gcp.vertex_ai</code>, etc.</td></tr>
+            <tr><td><code>gen_ai.request.model</code></td><td>string</td><td>The model name the request targets</td></tr>
+            <tr><td><code>gen_ai.response.model</code></td><td>string</td><td>The model name that generated the response</td></tr>
+            <tr><td><code>gen_ai.usage.input_tokens</code></td><td>int</td><td>Total input token count</td></tr>
+            <tr><td><code>gen_ai.usage.output_tokens</code></td><td>int</td><td>Total output token count</td></tr>
+            <tr><td><code>gen_ai.usage.cache_read.input_tokens</code></td><td>int</td><td>Cached input tokens (provider-managed)</td></tr>
+            <tr><td><code>gen_ai.usage.reasoning.output_tokens</code></td><td>int</td><td>Reasoning/thinking output tokens</td></tr>
+            <tr><td><code>gen_ai.tool.name</code></td><td>string</td><td>Name of the tool executed</td></tr>
+            <tr><td><code>gen_ai.tool.call.id</code></td><td>string</td><td>The tool call identifier</td></tr>
+            <tr><td><code>gen_ai.agent.name</code></td><td>string</td><td>The agent executing the operation</td></tr>
+            <tr><td><code>gen_ai.conversation.id</code></td><td>string</td><td>The conversation/session identifier</td></tr>
+          </tbody>
+        </table>
+
+        <div class="research-note">
+          <span class="callout-label">Research Note — Retrieval date: September 2026</span>
+          <p>The GenAI semantic conventions are at <strong>Development</strong> stability and maintained in a dedicated repository (<a href="https://github.com/open-telemetry/semantic-conventions-genai" rel="noopener">github.com/open-telemetry/semantic-conventions-genai</a>). They may still evolve. Do not describe these as permanently fixed. Verify against current official documentation before publishing production instrumentation. The attribute names above are verified against the repository as of this date.</p>
+        </div>
+
+        <h2 id="s7">07. Telemetry schema is a platform contract</h2>
+        <p>If different teams emit <code>agentName</code>, <code>agent_name</code>, <code>agent-id</code>, and <code>executor</code> for the same concept, cross-system analysis becomes painful. The telemetry schema is a platform contract that must be versioned and documented.</p>
+        <table class="article-table">
+          <thead><tr><th>Domain</th><th>Application-specific attributes</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>Workflow</td><td><code>workflow.name</code>, <code>workflow.version</code></td><td>Identify and version the workflow</td></tr>
+            <tr><td>Agent</td><td><code>agent.name</code>, <code>agent.version</code></td><td>Identify and version each agent</td></tr>
+            <tr><td>Model</td><td><code>gen_ai.provider.name</code> (standard), <code>model.name</code> (app-specific)</td><td>Provider and model identity</td></tr>
+            <tr><td>Tool</td><td><code>gen_ai.tool.name</code> (standard), <code>tool.status</code> (app-specific)</td><td>Tool identity and outcome</td></tr>
+            <tr><td>Request</td><td><code>internal_request_id</code>, <code>session_id</code>, <code>tenant_id</code></td><td>Correlation across systems</td></tr>
+            <tr><td>Evaluation</td><td><code>evaluator</code>, <code>evaluator_version</code>, <code>score</code></td><td>Quality signal identity</td></tr>
+          </tbody>
+        </table>
+        <p>Clearly distinguish <strong>standard semantic conventions</strong> (like <code>gen_ai.*</code> attributes) from <strong>application-specific attributes</strong> (like <code>workflow.name</code>). Do not invent OTel standard names where custom names are used.</p>
+
+        <h2 id="s8">08. Context propagation</h2>
+        <p>This is one of the deepest sections in the article. Without context propagation, a multi-agent workflow fragments into disconnected traces.</p>
+        <p>Consider a workflow that crosses service boundaries:</p>
+        <div class="flow">API
+↓
+Supervisor Agent
+↓
+Research Agent
+↓
+MCP Server
+↓
+External Tool</div>
+        <p><strong>Without context propagation</strong>, each component creates its own trace:</p>
+        <div class="flow">Trace A: API → Supervisor
+Trace B: Research Agent
+Trace C: MCP Server
+Trace D: Tool</div>
+        <p>The workflow is fragmented. You cannot reconstruct that the tool execution was part of the API request.</p>
+        <p><strong>With context propagation</strong>, all components share the same trace identity:</p>
+        <div class="flow">trace_id = abc
+
+API
+│
+▼
+Supervisor
+│
+▼
+Research Agent
+│
+▼
+MCP Server
+│
+▼
+Tool</div>
+        <p>Each component creates a child span under the same trace context. The tool execution appears inside the workflow trace.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/context-propagation.svg" role="img" aria-label="Broken vs connected trace context propagation" style="width:100%; max-width:760px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 4 — Without context propagation, a workflow fragments into disconnected traces. With propagation, one end-to-end trace preserves full causality.</figcaption>
+        </figure>
+
+        <h3 id="s8a">W3C Trace Context</h3>
+        <p>The W3C Trace Context specification defines how trace identity crosses process and service boundaries. The core mechanism is the <code>traceparent</code> header, which carries:</p>
+        <ul>
+          <li><strong>trace-id</strong> — a 16-byte (32 hex character) identifier shared across the entire trace</li>
+          <li><strong>parent-id</strong> — an 8-byte (16 hex character) identifier for the parent span</li>
+          <li><strong>trace-flags</strong> — flags including sampling decisions</li>
+        </ul>
+        <p>The <code>tracestate</code> header may carry vendor-specific trace context where applicable. The important engineering point is not the header format — it is that <strong>trace identity must cross process, service, and tool boundaries</strong>.</p>
+
+        <div class="engineering-note">
+          <span class="callout-label">Langfuse + W3C</span>
+          <p>Langfuse follows the W3C Trace Context standard: trace IDs are 32-character lowercase hex strings, observation IDs are 16-character lowercase hex strings. The Langfuse SDK supports <code>trace_context</code> parameters to link observations into existing traces from upstream services, enabling cross-service trace continuity.</p>
+        </div>
+
+        <h3 id="s8b">MCP trace propagation</h3>
+        <p>Model Context Protocol (MCP) connects agents to external tools and services. Without trace propagation across the MCP boundary, the client trace and the MCP server trace are disconnected.</p>
+        <div class="flow">Agent / MCP Client
+      ↓
+MCP request
+      ↓
+propagated trace metadata
+      ↓
+MCP Server
+      ↓
+Tool execution</div>
+        <p>With propagation, the tool execution on the MCP server appears as a child span inside the workflow trace. The Langfuse SDK supports cross-service propagation via <code>as_baggage</code> parameters that propagate trace attributes through HTTP headers to downstream services.</p>
+
+        <div class="research-note">
+          <span class="callout-label">Research Note</span>
+          <p>Langfuse SDK cross-service propagation uses OpenTelemetry baggage for attribute propagation (e.g., <code>user_id</code>, <code>session_id</code>) via HTTP headers. The <code>as_baggage</code> parameter enables this. OpenTelemetry GenAI semantic conventions also define MCP-specific span conventions in the <a href="https://github.com/open-telemetry/semantic-conventions-genai" rel="noopener">semantic-conventions-genai</a> repository. Verify exact metadata structures against current official docs before hardcoding.</p>
+        </div>
+
+        <h2 id="s9">09. Multi-agent traces are not always simple trees</h2>
+        <p>A simple parent/child trace looks like:</p>
+        <div class="flow">Supervisor
+├─ Agent A
+└─ Agent B</div>
+        <p>But real workflows may involve <strong>fan-out</strong>:</p>
+        <div class="flow">Supervisor
+├─ Researcher A
+├─ Researcher B
+└─ Researcher C
+        ↓
+Aggregator</div>
+        <p>Or <strong>handoffs</strong> where control returns to a previous agent:</p>
+        <div class="flow">Agent A
+↓
+Agent B
+↓
+Agent C
+↓
+Agent A</div>
+        <p>Therefore retain: trace identity, span parentage, workflow identity, agent identity, and handoff metadata. Do not rely on span names alone to reconstruct agent topology.</p>
+
+        <h3 id="s9a">Agent handoffs</h3>
+        <p>Instrument handoffs with metadata such as <code>source_agent</code>, <code>target_agent</code>, <code>handoff_type</code>, <code>status</code>, and <code>duration</code>.</p>
+
+        <div class="article-callout" style="border-left-color: var(--danger-border); background: var(--danger-bg);">
+          <span class="callout-label" style="color: var(--danger-border);">Privacy Boundary — Do Not Log Chain-of-Thought</span>
+          <p>Do <strong>not</strong> design telemetry to capture hidden chain-of-thought or private internal reasoning. Trace <em>observable actions</em>: explicit system state, tool calls, model invocations, handoff events, retrieval, latency, tokens, scores, errors, and version metadata. Do not expose private model reasoning.</p>
+        </div>
+
+        <h2 id="s10">10. Tool call observability</h2>
+        <p>Each tool execution should be distinguishable from the surrounding LLM generation:</p>
+        <div class="flow">Agent
+ └─ Tool: billing.lookup_order
+      ├─ input validation
+      ├─ external dependency
+      └─ result</div>
+        <p>Useful telemetry for tool spans includes: tool name, duration, status, retry count, dependency, error category, and tool-call ID where available. The OTel GenAI conventions define <code>gen_ai.tool.name</code>, <code>gen_ai.tool.call.id</code>, <code>gen_ai.tool.description</code>, and <code>gen_ai.tool.type</code> for execute_tool spans.</p>
+
+        <div class="article-callout" style="border-left-color: var(--danger-border); background: var(--danger-bg);">
+          <span class="callout-label" style="color: var(--danger-border);">Sensitive Data Warning</span>
+          <p>Avoid indiscriminately storing full tool arguments and results. They may contain PII, secrets, large payloads, or customer data. Tool arguments and results are <strong>especially risky</strong> — apply the same redaction policy as prompts and responses.</p>
+        </div>
+
+        <h2 id="s11">11. Retrieval observability</h2>
+        <p>For RAG and retrieval flows, model the retrieval operation as a span with child operations:</p>
+        <div class="flow">retrieval
+├─ query transformation
+├─ embedding
+├─ dense search
+├─ sparse search
+├─ fusion
+└─ reranking</div>
+        <p>Potential telemetry: retrieval latency, top-k, rerank latency, document identifiers, scores, and retriever version. Use privacy and cardinality controls — document content and scores may be sensitive. Do not turn this into a RAG evaluation article.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/agent-trace-detail.svg" role="img" aria-label="Agent trace detail with LLM, retrieval, and tool spans" style="width:100%; max-width:560px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 5 — One agent span containing generation, retrieval, and tool child spans. Each operation has its own duration and attributes.</figcaption>
+        </figure>
+
+        <h2 id="s12">12. Private AWS architecture</h2>
+        <p>The observability architecture runs inside a private AWS environment. The design separates infrastructure telemetry from AI telemetry, with OpenTelemetry as the shared instrumentation contract.</p>
+        <div class="flow">PRIVATE AWS ENVIRONMENT
+
+Application / Agent Services
+       │
+       │ OTel instrumentation
+       ▼
+OpenTelemetry SDK
+       │
+       ▼
+OTel Collector / Telemetry Pipeline
+       │
+       ├──────────────► infrastructure telemetry
+       │
+       │
+       └──────────────► AI telemetry
+                              │
+                              ▼
+                       Self-hosted Langfuse
+                              │
+                       persistent storage
+                              │
+                    traces / evals / cost</div>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/private-aws-architecture.svg" role="img" aria-label="Private LLMOps architecture on AWS" style="width:100%; max-width:680px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 6 — Private AWS observability architecture. The OTel Collector splits telemetry: infrastructure to CloudWatch, AI telemetry to self-hosted Langfuse.</figcaption>
+        </figure>
+
+        <h2 id="s13">13. CloudWatch vs Langfuse — different questions</h2>
+        <p>These systems solve different observability scopes. They are not competitors.</p>
+        <div class="resp-map">
+          <div class="resp-row">
+            <div class="resp-key">Infrastructure monitoring (CloudWatch)</div>
+            <div class="resp-val">Container restart · memory · CPU · application errors · AWS service health · infrastructure logs</div>
+          </div>
+          <div class="resp-row">
+            <div class="resp-key">LLMOps observability (Langfuse)</div>
+            <div class="resp-val">Which model call · which agent · which tool · tokens · cost · prompt/version · trace path · eval score</div>
+          </div>
+        </div>
+        <p>OTel and trace correlation help bridge these layers. A shared <code>trace_id</code> or <code>internal_request_id</code> lets you jump from a CloudWatch infrastructure alert to the corresponding Langfuse trace. This is not "CloudWatch = bad, Langfuse = good." They answer different questions.</p>
+
+        <h2 id="s14">14. Langfuse — responsibility, not marketing</h2>
+        <p>In this architecture, Langfuse serves as an LLM/application observability and evaluation platform capable of representing: traces, observations (spans, generations, events), scores, prompt/version information, cost/token metadata, and datasets/evaluations. The Langfuse SDK is built on OpenTelemetry — observations are OTel spans under the hood, and the SDK supports W3C Trace Context for cross-service propagation.</p>
+
+        <h3 id="s14a">Current Langfuse self-hosted architecture</h3>
+        <p>Based on official Langfuse documentation (retrieved September 2026, version v4), the current self-hosted architecture is <strong>not</strong> just "Langfuse + PostgreSQL." It consists of:</p>
+        <table class="article-table">
+          <thead><tr><th>Component</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Langfuse Web</strong> (container)</td><td>Main web application serving the UI and APIs; receives trace events in batches</td></tr>
+            <tr><td><strong>Langfuse Worker</strong> (container)</td><td>Asynchronous worker that processes events from queue and ingests into ClickHouse</td></tr>
+            <tr><td><strong>PostgreSQL</strong></td><td>OLTP — transactional data (users, projects, API keys, prompts, datasets)</td></tr>
+            <tr><td><strong>ClickHouse</strong></td><td>OLAP — high-performance analytics storage for traces, observations, and scores</td></tr>
+            <tr><td><strong>Redis / Valkey</strong></td><td>Cache and queue operations (API key caching, prompt caching, event queueing)</td></tr>
+            <tr><td><strong>S3 / Blob Storage</strong></td><td>Persists all incoming events, multi-modal attachments, and large exports</td></tr>
+          </tbody>
+        </table>
+
+        <div class="research-note">
+          <span class="callout-label">Research Note — Retrieval date: September 2026, Langfuse v4</span>
+          <p>Source: <a href="https://langfuse.com/self-hosting" rel="noopener">langfuse.com/self-hosting</a>. Current Langfuse self-hosted architecture uses Web + Worker application containers plus PostgreSQL, ClickHouse, Redis/Valkey, and S3/blob storage. All incoming events are persisted to S3 first, then processed asynchronously by the Worker into ClickHouse. This is the same codebase as Langfuse Cloud. Do not describe current Langfuse as only PostgreSQL — the architecture has evolved.</p>
+        </div>
+
+        <div class="engineering-note">
+          <span class="callout-label">Sidebar — Observability Design vs Product Storage</span>
+          <p>The LLMOps design pattern described in this article should not be confused with the internal storage architecture of a specific Langfuse version. Our design concerns: instrumentation, context propagation, privacy, sampling, failure isolation, evaluation, cost/latency analysis. Langfuse's internal persistence architecture may change independently. This makes the article more durable — the design principles apply regardless of whether Langfuse uses PostgreSQL, ClickHouse, or something else behind the scenes.</p>
+        </div>
+
+        <h3 id="s14b">Distinction: Avivek's implementation vs current Langfuse</h3>
+        <p>At the time of earlier implementation work, the architecture may have been described as "Langfuse + PostgreSQL." The current Langfuse release (v4) uses a more sophisticated data plane with ClickHouse for analytics, Redis/Valkey for caching and queueing, and S3 for event persistence. This article describes the <strong>design pattern</strong> for observability; it does not rewrite earlier implementation to match the newest Langfuse architecture. When self-hosting, verify the current architecture against <a href="https://langfuse.com/self-hosting" rel="noopener">official Langfuse documentation</a>.</p>
+
+        <h2 id="s15">15. High cardinality</h2>
+        <p>Agent systems naturally produce high-cardinality identifiers: user ID, request ID, session ID, document ID, tool-call ID, prompt ID, trace ID, agent ID, model, provider, version. Some are useful in trace attributes. They are often dangerous as metric dimensions.</p>
+        <table class="article-table">
+          <thead><tr><th>Signal</th><th>Cardinality guidance</th><th>Reason</th></tr></thead>
+          <tbody>
+            <tr><td>Trace attributes</td><td>Can tolerate higher-cardinality identifiers</td><td>Traces are queried individually; backend cost depends on volume design</td></tr>
+            <tr><td>Metric labels / dimensions</td><td>Should generally remain low-cardinality</td><td>High-cardinality labels create unbounded time series</td></tr>
+          </tbody>
+        </table>
+        <p>Bad conceptual metric:</p>
+        <div class="code-block">
+<span class="code-label">Bad — high-cardinality metric labels</span>
+<pre>request_latency{
+  user_id,        ← unique per user
+  session_id,     ← unique per session
+  request_id,     ← unique per request
+  prompt_text     ← unique per prompt
+}</pre>
+        </div>
+        <p>Better:</p>
+        <div class="code-block">
+<span class="code-label">Good — low-cardinality metric labels</span>
+<pre>request_latency{
+  model,          ← small set
+  provider,       ← small set
+  workflow,       ← small set
+  agent           ← small set
+}</pre>
+        </div>
+        <p>Store per-request correlation (user ID, session ID, request ID) in <strong>trace attributes</strong>, not metric labels. Do not claim one specific cardinality threshold — the right limit depends on your backend, retention, and cost model.</p>
+
+        <h3 id="s15a">Trace naming</h3>
+        <p>Do not create unique span names from user content.</p>
+        <div class="code-block">
+<span class="code-label">Bad — user content in span name</span>
+<pre>span_name = "Find invoice 198271 for user john@example.com"</pre>
+<span class="code-label">Good — controlled span name</span>
+<pre>span_name = "billing.lookup_invoice"
+# Put controlled context in attributes:
+span.set_attribute("invoice.id", "198271")
+span.set_attribute("user.id", "[REDACTED]")</pre>
+        </div>
+        <p>This improves aggregation, privacy, cardinality, and searchability.</p>
+
+        <h2 id="s16">16. Trace content — what should we capture?</h2>
+        <p>Define levels of telemetry richness. Not every deployment needs Level 3.</p>
+        <table class="article-table">
+          <thead><tr><th>Level</th><th>Content</th><th>Debugging value</th><th>Privacy risk</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Level 0</strong></td><td>Metadata only</td><td>Low</td><td>Minimal</td></tr>
+            <tr><td><strong>Level 1</strong></td><td>Model, provider, latency, tokens, status</td><td>Medium</td><td>Low</td></tr>
+            <tr><td><strong>Level 2</strong></td><td>Controlled request metadata, prompt/version IDs, tool/retrieval metadata</td><td>High</td><td>Medium</td></tr>
+            <tr><td><strong>Level 3</strong></td><td>Full prompts, responses, tool arguments, retrieved content</td><td>Highest</td><td>High</td></tr>
+          </tbody>
+        </table>
+        <p>Each level involves trade-offs between debugging value, storage cost, privacy, PII exposure, secrets, customer data, and compliance requirements. <strong>Do not advocate always collecting full prompt/response content.</strong> The right level depends on your environment, compliance requirements, and debugging needs.</p>
+
+        <h3 id="s16a">PII / secret risk</h3>
+        <p>AI traces may accidentally contain: email addresses, names, account identifiers, API responses, retrieved customer documents, tool credentials (if incorrectly logged), access tokens, prompt secrets, and private business data. Tool arguments and results are especially risky.</p>
+
+        <h2 id="s17">17. Redaction before export</h2>
+        <p>Sensitive data should be filtered <strong>before leaving the workload boundary</strong> where possible.</p>
+        <div class="flow">Application
+   ↓
+Raw telemetry
+   ↓
+Policy / Redaction
+   ├─ remove secrets
+   ├─ mask PII
+   ├─ truncate large payloads
+   └─ allow/deny fields
+   ↓
+Exporter
+   ↓
+Collector / Backend</div>
+
+        <div class="article-callout">
+          <span class="callout-label">Core Principle</span>
+          <p>Do not rely on "we'll hide it later in the dashboard." Redaction at the backend means sensitive data has already traversed your network, been serialized, and been stored. Filter at the source where possible.</p>
+        </div>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/redaction-pipeline.svg" role="img" aria-label="Redaction pipeline before telemetry export" style="width:100%; max-width:560px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 7 — Raw telemetry passes through policy/redaction before export. Sensitive data is filtered before leaving the workload boundary.</figcaption>
+        </figure>
+
+        <h2 id="s18">18. Sampling</h2>
+        <p>Sampling is not just "sample 10%." The decision of <em>when</em> to sample matters as much as the rate.</p>
+        <h3 id="s18a">Head sampling</h3>
+        <p>The decision is made when the trace begins. The problem: at the start, you do not yet know whether the request will become slow, expensive, failed, or interesting. You may drop the most valuable traces.</p>
+        <h3 id="s18b">Tail sampling</h3>
+        <p>The decision is made after seeing the trace outcome. You can retain errors, high-latency traces, high-cost traces, selected workflows, and specific tenants (where policy allows) while sampling normal successful traffic.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/sampling.svg" role="img" aria-label="Head vs tail sampling" style="width:100%; max-width:680px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 8 — Head sampling decides before the outcome is known. Tail sampling decides after, enabling retention of failures while reducing normal telemetry volume.</figcaption>
+        </figure>
+
+        <div class="architecture-decision">
+          <span class="callout-label">Example Sampling Policy — not a universal rule</span>
+          <p>Retain: 100% failed traces · 100% selected critical workflows · 100% extremely slow traces · 100% selected evaluation/debug sessions. Sample normal successful traffic. Potentially prioritize: high-token, high-cost, multi-agent, rare tool failures. Do not publish exact thresholds unless chosen for a specific experiment.</p>
+        </div>
+
+        <h2 id="s19">19. Asynchronous telemetry</h2>
+        <p>Telemetry should generally not sit synchronously on the latency-critical path where avoidable.</p>
+        <p><strong>Bad:</strong></p>
+        <div class="flow">User Request
+    ↓
+AI workflow
+    ↓
+synchronous observability write
+    ↓
+wait
+    ↓
+response</div>
+        <p>If the observability backend becomes slow, the application becomes slow.</p>
+        <p><strong>Better:</strong></p>
+        <div class="flow">Agent Application
+      │
+      ├─ execution path ──→ Response
+      │
+      └─ telemetry
+             ↓
+       bounded exporter
+             ↓
+       OTel Collector
+             ↓
+       observability backend</div>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/async-telemetry.svg" role="img" aria-label="Synchronous vs asynchronous telemetry export" style="width:100%; max-width:680px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 9 — Synchronous backend writes block the response. Buffered/asynchronous export separates the telemetry path from the execution path.</figcaption>
+        </figure>
+
+        <div class="article-callout">
+          <span class="callout-label">Nuance</span>
+          <p>Do not claim all telemetry is fire-and-forget. Some audit-critical systems may intentionally require stronger delivery guarantees. The Langfuse SDK, for example, buffers observations asynchronously and requires <code>flush()</code> or <code>shutdown()</code> in short-lived processes to avoid data loss. Async does not mean "guaranteed delivery" — it means "not on the critical path by default."</p>
+        </div>
+
+        <h2 id="s20">20. What if Langfuse is down?</h2>
+        <p>This is one of the strongest design questions in the architecture.</p>
+        <p><strong>Failure:</strong> Langfuse unavailable.</p>
+        <p><strong>Wrong architecture:</strong> Agent unavailable.</p>
+        <p>Should observability failure fail the AI request? For many systems: <strong>no</strong>. Observability should generally be fail-open relative to inference and business execution. However, audit-critical workflows may require different policies.</p>
+
+        <div class="failure-mode">
+          <p class="failure-title"><span class="badge">Failure Mode</span>Observability backend unavailable</p>
+          <h4>Wrong behavior</h4>
+          <ul>
+            <li>Agent request fails because telemetry export fails</li>
+            <li>User-facing latency increases due to telemetry timeout</li>
+            <li>Application becomes coupled to observability backend availability</li>
+          </ul>
+          <h4>Correct behavior</h4>
+          <ul>
+            <li>Bounded retry — attempt export with a limited retry budget</li>
+            <li>Temporary buffer — queue telemetry in a bounded local buffer</li>
+            <li>Sampling — drop lower-value telemetry under pressure</li>
+            <li>Dead-letter / persistent buffering where required by policy</li>
+            <li>Application continues where policy permits</li>
+          </ul>
+        </div>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/backend-failure.svg" role="img" aria-label="Observability backend failure isolation" style="width:100%; max-width:680px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 10 — When Langfuse is unavailable, AI execution remains independent. The telemetry pipeline experiences failure with bounded policy.</figcaption>
+        </figure>
+
+        <h2 id="s21">21. Telemetry backpressure</h2>
+        <p>If the telemetry backend slows down:</p>
+        <div class="flow">Langfuse / backend slows
+↓
+export rate falls
+↓
+telemetry queue grows</div>
+        <p>If the queue is unbounded, memory grows and the application may OOM. Therefore observability itself needs: bounded queues, retry budget, sampling, drop policy, batching, and persistent buffer where appropriate.</p>
+        <div class="article-callout">
+          <span class="callout-label">Core Principle</span>
+          <p>Observability must not become an unbounded side channel. The same backpressure principles that apply to LLM API queues (Article 03) apply to telemetry pipelines.</p>
+        </div>
+
+        <h3 id="s21a">OTel Collector role</h3>
+        <p>The OTel Collector sits between the application and the backend. It can provide: batching, processing, filtering, redaction, sampling integration, export, and buffering patterns depending on configuration. The Collector is a key component for isolating the application from backend failures — but its exact guarantees depend on configuration (processor chain, exporter timeouts, queue sizes). Verify against current <a href="https://opentelemetry.io/docs/collector/" rel="noopener">official OTel Collector documentation</a> before making precise claims.</p>
+
+        <h2 id="s22">22. Cost attribution</h2>
+        <p>For each LLM generation, capture where available: provider, model, input tokens, output tokens, cached tokens, reasoning tokens (where exposed), latency, and price/version metadata if cost is computed. The OTel GenAI conventions define <code>gen_ai.usage.input_tokens</code>, <code>gen_ai.usage.output_tokens</code>, <code>gen_ai.usage.cache_read.input_tokens</code>, and <code>gen_ai.usage.reasoning.output_tokens</code> for this purpose.</p>
+        <p>Then aggregate: cost per trace, cost per session, cost per agent, cost per workflow, cost per tenant, cost per model.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/cost-attribution.svg" role="img" aria-label="Cost attribution across a multi-agent workflow" style="width:100%; max-width:560px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 11 — Workflow cost decomposed by component. Percentages are conceptual placeholders, not measured values.</figcaption>
+        </figure>
+
+        <div class="article-callout" style="border-left-color: var(--warn-border); background: var(--warn-bg);">
+          <span class="callout-label" style="color: #9a6700;">No Hardcoded Prices</span>
+          <p>Do not hardcode provider prices unless dated and researched. Provider pricing changes. If cost computation is needed, maintain a versioned price table and record the date. For the reference lab, token counts are simulated and labeled as synthetic.</p>
+        </div>
+
+        <h2 id="s23">23. Latency attribution and the critical path</h2>
+        <p>Total latency is not enough. The trace should let us attribute latency to: queue/wait (where instrumented), agent, model call, retrieval, tool, handoff, retry, and final generation.</p>
+        <p><strong>Critical path</strong> is the key concept. Parallel operations should not simply be added.</p>
+        <div class="flow">Agent A = 10 sec
+Agent B = 3 sec
+Agent C = 5 sec
+
+If concurrent:
+workflow duration is NOT 18 sec.
+It is max(10, 3, 5) + aggregator = 13 sec.</div>
+        <p>The trace timeline makes the critical path visible. Without a trace timeline, you cannot distinguish serial from parallel execution, and you cannot identify which operation actually gated the response.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/private-llmops/critical-path.svg" role="img" aria-label="Critical path in a parallel multi-agent workflow" style="width:100%; max-width:720px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 12 — Three agents run in parallel. The critical path is Agent A (10s) plus Aggregator (3s) = 13s, not the sum of all durations (18s).</figcaption>
+        </figure>
+
+        <h2 id="s24">24. Evaluations</h2>
+        <p>Evaluations are observability-adjacent quality signals. Possible scores include: correctness, groundedness, tool correctness, retrieval quality, trajectory quality, policy compliance, and human review. Do not claim one metric solves AI quality.</p>
+
+        <h3 id="s24a">Trace + evaluation connection</h3>
+        <p>A trace may later receive a groundedness score, a tool correctness score, a human score, or an LLM-as-judge score. Once evaluations are connected to traces, queries become possible:</p>
+        <ul>
+          <li>Which prompt version improved latency but reduced quality?</li>
+          <li>Which agent configuration costs more without improving scores?</li>
+          <li>Which model version increases tool failure rate?</li>
+        </ul>
+        <p>This is where LLMOps goes beyond infrastructure monitoring. A trace without an evaluation tells you <em>what happened</em>. A trace with an evaluation tells you <em>whether what happened was good</em>.</p>
+
+        <h3 id="s24b">Online vs offline evaluations</h3>
+        <table class="article-table">
+          <thead><tr><th></th><th>Online</th><th>Offline</th></tr></thead>
+          <tbody>
+            <tr><td><strong>When</strong></td><td>On live traffic</td><td>Later, using stored traces and datasets</td></tr>
+            <tr><td><strong>Constraints</strong></td><td>Latency, cost, sampling, safety</td><td>Heavier: multiple judges, human review, comparison</td></tr>
+            <tr><td><strong>Uses</strong></td><td>Real-time quality signals, guardrails</td><td>Regression sets, replay workflows, prompt/model comparison</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="s25">25. Prompt / config versioning</h2>
+        <p>Track: <code>prompt_name</code>, <code>prompt_version</code>, <code>model</code>, <code>model configuration</code>, <code>application version</code>, <code>agent version</code>, and <code>tool version</code> where relevant. Then compare release A vs release B across latency, cost, error rate, and evaluation score.</p>
+        <div class="article-callout">
+          <span class="callout-label">Core Principle</span>
+          <p>Prompts and agent configs should be <strong>observable deployment artifacts</strong>. If you cannot answer "which prompt version produced this trace?" then you cannot do controlled experiments across releases.</p>
+        </div>
+
+        <h2 id="s26">26. Reference implementation</h2>
+        <p>A small reproducible lab demonstrates the observability concepts. It uses mock/fake model components for reproducible telemetry tests — no real API quota is burned.</p>
+        <p>The lab lives at <code>/experiments/private-llmops/</code> and contains:</p>
+        <div class="code-block">
+<span class="code-label">Lab structure</span>
+<pre>experiments/private-llmops/
+├── README.md
+├── requirements.txt
+├── app.py                # FastAPI entry point
+├── telemetry.py          # OTel + Langfuse setup
+├── tracing.py            # Span helpers and context propagation
+├── redaction.py          # PII/secret redaction processor
+├── sampling.py           # Head/tail sampling policies
+├── agent_runtime.py      # Multi-agent workflow runtime
+├── tools.py              # Mock tool implementations
+├── retrieval.py          # Mock retrieval/reranking
+├── evaluations.py        # Score attachment to traces
+├── services/
+│   ├── agent_a.py        # Research agent service
+│   └── agent_b.py        # Validation agent service
+├── mcp/
+│   ├── client.py         # MCP client with trace propagation
+│   └── server.py         # MCP server with trace context extraction
+├── config/
+│   └── otel-collector.yaml
+├── experiments/
+│   ├── trace_overhead.py
+│   ├── backend_failure.py
+│   ├── context_propagation.py
+│   ├── telemetry_volume.py
+│   ├── sampling.py
+│   └── cost_latency_attribution.py
+└── results/
+    └── .gitkeep</pre>
+        </div>
+
+        <h3 id="s26a">Reference workflow</h3>
+        <div class="flow">User request
+↓
+Supervisor
+↓
+Research Agent
+├─ Retrieval
+├─ Tool
+└─ LLM-like mock generation
+↓
+Validation Agent
+↓
+Final response</div>
+        <p>Real LLM calls are optional. The lab prefers mock/fake model components for reproducible telemetry tests. This keeps the lab runnable without API keys or GPU resources.</p>
+
+        <h3 id="s26b">Code sample 01 — nested spans</h3>
+        <div class="code-block">
+<span class="code-label">tracing.py — nested OpenTelemetry spans</span>
+<pre>from opentelemetry import trace
+
+tracer = trace.get_tracer("multi-agent")
+
+def run_support_workflow(user_request: str):
+    with tracer.start_as_current_span("support_workflow") as wf:
+        wf.set_attribute("workflow.name", "support")
+        wf.set_attribute("workflow.version", "1.2.0")
+
+        with tracer.start_as_current_span("planner_agent") as planner:
+            planner.set_attribute("agent.name", "planner")
+            # ... planner logic ...
+
+        with tracer.start_as_current_span("retrieve_context") as retrieval:
+            retrieval.set_attribute("retrieval.type", "vector")
+            # ... retrieval logic ...
+
+        with tracer.start_as_current_span("billing.lookup_order") as tool:
+            tool.set_attribute("gen_ai.tool.name", "lookup_order")
+            # ... tool logic ...
+
+        with tracer.start_as_current_span("final_generation") as gen:
+            gen.set_attribute("gen_ai.operation.name", "chat")
+            # ... generation logic ...</pre>
+        </div>
+
+        <h3 id="s26c">Code sample 02 — controlled attributes</h3>
+        <div class="code-block">
+<span class="code-label">tracing.py — controlled span attributes</span>
+<pre># Standard GenAI semantic convention attributes (Development stability):
+span.set_attribute("gen_ai.operation.name", "chat")
+span.set_attribute("gen_ai.provider.name", "mock")
+span.set_attribute("gen_ai.request.model", "mock-gpt-4")
+span.set_attribute("gen_ai.usage.input_tokens", 320)
+span.set_attribute("gen_ai.usage.output_tokens", 180)
+
+# Application-specific attributes (clearly non-standard):
+span.set_attribute("agent.name", "research_agent")
+span.set_attribute("agent.version", "2.1.0")
+span.set_attribute("workflow.name", "support")
+span.set_attribute("workflow.version", "1.2.0")
+span.set_attribute("internal_request_id", req_id)
+span.set_attribute("session.id", session_id)</pre>
+        </div>
+
+        <div class="research-note">
+          <span class="callout-label">Attribution Verification</span>
+          <p>The <code>gen_ai.*</code> attributes above are verified against the OpenTelemetry GenAI semantic conventions repository (September 2026, Development stability). The <code>agent.*</code>, <code>workflow.*</code>, <code>internal_request_id</code>, and <code>session.id</code> attributes are application-specific and clearly labeled as non-standard.</p>
+        </div>
+
+        <h3 id="s26d">Code sample 03 — redaction</h3>
+        <div class="code-block">
+<span class="code-label">redaction.py — telemetry redaction processor</span>
+<pre>import re
+
+EMAIL_RE = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+KEY_RE  = re.compile(r'(sk-|pk-|api_key|token)["\']?\s*[:=]\s*["\']?[A-Za-z0-9_-]{8,}')
+
+def redact(value: str) -> str:
+    """Mask PII and remove secrets from a telemetry field."""
+    value = EMAIL_RE.sub("[REDACTED_EMAIL]", value)
+    value = KEY_RE.sub('[REDACTED_SECRET]', value)
+    return value
+
+def redact_dict(data: dict, allow: set, deny: set) -> dict:
+    """Apply allow/deny field rules, then redact remaining values."""
+    result = {}
+    for key, val in data.items():
+        if key in deny:
+            continue
+        if key not in allow:
+            continue
+        if isinstance(val, str):
+            result[key] = redact(val)
+        elif isinstance(val, dict):
+            result[key] = redact_dict(val, allow, deny)
+        else:
+            result[key] = val
+    return result
+
+# Example:
+# Input:  {"email": "john@example.com", "api_key": "sk-abc123def456", "query": "hello"}
+# Output: {"email": "[REDACTED_EMAIL]", "query": "hello"}</pre>
+        </div>
+
+        <h2 id="s27">27. Experiments</h2>
+        <p>Six experiments are designed. Each has methodology, hypothesis, variables, and instrumentation. <strong>No experiments have been executed yet.</strong> No results are published. No fake data is presented.</p>
+
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment 01 — Observability overhead</h3>
+            <span class="status">Methodology</span>
+          </div>
+          <p class="exp-goal"><strong>Question:</strong> What does tracing cost in latency and memory?</p>
+          <p class="exp-record-label">Procedure</p>
+          <ul>
+            <li>Run the same workflow with instrumentation disabled (A)</li>
+            <li>Run with OTel instrumentation enabled, async/batched export (B)</li>
+            <li>Measure: p50 latency, p95 latency, CPU, memory, telemetry bytes</li>
+          </ul>
+          <p class="exp-record-label">Hypothesis</p>
+          <ul>
+            <li>Async batched export should add minimal latency overhead</li>
+            <li>Memory overhead should be bounded by queue size</li>
+          </ul>
+          <p class="exp-record-label">Status</p>
+          <ul>
+            <li>Not executed. Methodology and instrumentation defined.</li>
+          </ul>
+        </div>
+
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment 02 — Backend failure</h3>
+            <span class="status">Methodology</span>
+          </div>
+          <p class="exp-goal"><strong>Question:</strong> What happens if the observability backend becomes unavailable?</p>
+          <p class="exp-record-label">Procedure</p>
+          <ul>
+            <li>Start workflow, make telemetry backend unreachable</li>
+            <li>Continue requests, observe: application success, exporter queue, memory, errors, dropped telemetry, recovery behavior</li>
+          </ul>
+          <p class="exp-record-label">Hypothesis</p>
+          <ul>
+            <li>Fail-open architecture: AI execution continues</li>
+            <li>Bounded queue prevents OOM; telemetry is dropped or buffered</li>
+          </ul>
+          <p class="exp-record-label">Status</p>
+          <ul>
+            <li>Not executed. This is the most important experiment for production readiness.</li>
+          </ul>
+        </div>
+
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment 03 — Trace context propagation</h3>
+            <span class="status">Methodology</span>
+          </div>
+          <p class="exp-goal"><strong>Question:</strong> Does trace context propagate across service and MCP boundaries?</p>
+          <p class="exp-record-label">Procedure</p>
+          <ul>
+            <li>Run A: without propagation at one boundary → observe fragmented traces</li>
+            <li>Run B: with proper W3C trace context propagation → observe single connected trace</li>
+            <li>Architecture: FastAPI → Supervisor → Agent service → MCP → Tool</li>
+          </ul>
+          <p class="exp-record-label">Status</p>
+          <ul>
+            <li>Not executed. Screenshots only if real traces are captured.</li>
+          </ul>
+        </div>
+
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment 04 — Telemetry volume</h3>
+            <span class="status">Methodology</span>
+          </div>
+          <p class="exp-goal"><strong>Question:</strong> How much storage does full-content vs metadata-only telemetry consume?</p>
+          <p class="exp-record-label">Procedure</p>
+          <ul>
+            <li>A: full prompt, full response, tool input/output, retrieval payload</li>
+            <li>B: metadata, IDs, controlled excerpts, redaction, truncation</li>
+            <li>Measure: bytes/event, bytes/trace, storage estimate, export latency, memory pressure</li>
+          </ul>
+          <p class="exp-record-label">Status</p>
+          <ul>
+            <li>Not executed. No real sensitive data used.</li>
+          </ul>
+        </div>
+
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment 05 — Sampling</h3>
+            <span class="status">Methodology</span>
+          </div>
+          <p class="exp-goal"><strong>Question:</strong> Can we retain high-value failure traces while reducing normal telemetry volume?</p>
+          <p class="exp-record-label">Procedure</p>
+          <ul>
+            <li>Generate synthetic workload: normal, slow, failed, high-cost traces</li>
+            <li>Compare uniform/head sampling vs policy/tail-oriented retention</li>
+            <li>Do not fake tail-sampling behavior if the implementation does not support it</li>
+          </ul>
+          <p class="exp-record-label">Status</p>
+          <ul>
+            <li>Not executed. Tail sampling requires OTel Collector tail_sampling processor.</li>
+          </ul>
+        </div>
+
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment 06 — Multi-agent cost / latency attribution</h3>
+            <span class="status">Methodology</span>
+          </div>
+          <p class="exp-goal"><strong>Question:</strong> How is cost and latency distributed across agents in a workflow?</p>
+          <p class="exp-record-label">Procedure</p>
+          <ul>
+            <li>Create one workflow with several agent/model/tool steps</li>
+            <li>Capture: duration per step, token count (simulated), relative cost (simulated, clearly labeled)</li>
+            <li>Produce a trace breakdown</li>
+            <li>All values labeled as <em>synthetic workload</em> — not production measurements</li>
+          </ul>
+          <p class="exp-record-label">Status</p>
+          <ul>
+            <li>Not executed. Synthetic values will be clearly labeled if run.</li>
+          </ul>
+        </div>
+
+        <h2 id="s28">28. Final architecture — three-plane mental model</h2>
+        <p>The article ends with a clean three-plane mental model.</p>
+        <div class="flow">EXECUTION PLANE
+Agents · LLMs · Retrieval · Tools
+        │ telemetry
+        ▼
+OBSERVABILITY PLANE
+OpenTelemetry · traces · metrics · logs
+context propagation · sampling · redaction
+        │
+        ▼
+LLMOPS / ANALYSIS PLANE
+Langfuse · AI traces · generations · evaluations
+prompts · cost · debugging · datasets
+
+Infrastructure monitoring (CloudWatch)
+sits alongside and correlates through
+common request/trace context.</div>
+
+        <div class="mental-model">
+          <span class="callout-label">Final Engineering Principle</span>
+          <p>Observability should explain the AI system without becoming part of the AI system's failure path. A useful LLMOps architecture must balance: visibility, latency overhead, telemetry volume, privacy, storage cost, failure isolation, trace continuity, and evaluation quality.</p>
+          <p><strong>The best trace is not the trace with the most data. It is the trace that preserves enough causality to debug and improve the system without destabilizing or exposing it.</strong></p>
+        </div>
+
+        <h2 id="s29">29. System boundary</h2>
+        <p>This article owns end-to-end trace design, OpenTelemetry instrumentation, multi-agent trace propagation, LLM generations, tool traces, retrieval traces, MCP trace propagation, evaluations, prompt/model/version metadata, latency attribution, token/cost attribution, sampling, telemetry privacy, redaction, asynchronous telemetry, telemetry backpressure, telemetry backend failure, self-hosted/private AWS observability architecture, and Langfuse. It does <strong>not</strong> cover: prefill/decode/KV cache (Article 01), vLLM/TGI/SGLang serving (Article 02), or RPM/TPM/retries/streaming recovery (Article 03). These are distinct technical layers in the series.</p>
+
+        <div class="article-end">
+          <div class="next-article">
+            <p class="label">Next Engineering Area</p>
+            <p class="title">Kubernetes for AI/ML Workloads</p>
+            <p class="soon">GPU scheduling · model serving · CPU/GPU workloads · KServe</p>
+          </div>
+        </div>
+
+        <h2 id="refs">References</h2>
+        <div class="references">
+          <ol>
+            <li id="ref1">OpenTelemetry. <em>GenAI Semantic Conventions</em>. <a href="https://github.com/open-telemetry/semantic-conventions-genai" rel="noopener">github.com/open-telemetry/semantic-conventions-genai</a> (Development stability, retrieved September 2026)</li>
+            <li id="ref2">OpenTelemetry. <em>Collector Documentation</em>. <a href="https://opentelemetry.io/docs/collector/" rel="noopener">opentelemetry.io/docs/collector</a></li>
+            <li id="ref3">W3C. <em>Trace Context</em>. <a href="https://www.w3.org/TR/trace-context/" rel="noopener">w3.org/TR/trace-context</a></li>
+            <li id="ref4">Langfuse. <em>Self-hosting Documentation</em> (v4). <a href="https://langfuse.com/self-hosting" rel="noopener">langfuse.com/self-hosting</a> (retrieved September 2026)</li>
+            <li id="ref5">Langfuse. <em>SDK Instrumentation</em>. <a href="https://langfuse.com/docs/sdk/python/decorators" rel="noopener">langfuse.com/docs/sdk/python/decorators</a></li>
+            <li id="ref6">Langfuse. <em>Observability Data Model — Observations, Traces and Sessions</em>. <a href="https://langfuse.com/docs/observability/data-model" rel="noopener">langfuse.com/docs/observability/data-model</a></li>
+            <li id="ref7">OpenTelemetry. <em>GenAI Agent Spans</em>. <a href="https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md" rel="noopener">github.com/open-telemetry/semantic-conventions-genai</a></li>
+          </ol>
+        </div>
+
+      </article>
+
+      <aside class="toc" aria-label="Table of contents">
+        <button class="toc-toggle" type="button" aria-expanded="true">On this page</button>
+        <div class="toc-list">
+          <h2>Contents</h2>
+          <ol>
+            <li><a href="#s1" data-toc="s1">01. The investigation</a></li>
+            <li><a href="#s2" data-toc="s2">02. Normal monitoring insufficient</a></li>
+            <li><a href="#s3" data-toc="s3">03. Metrics / logs / traces / evals</a></li>
+            <li><a href="#s4" data-toc="s4">04. Unit of observability</a></li>
+            <li><a href="#s5" data-toc="s5">05. Canonical trace model</a></li>
+            <li><a href="#s6" data-toc="s6">06. OTel instrumentation contract</a></li>
+            <li><a href="#s7" data-toc="s7">07. Telemetry schema</a></li>
+            <li><a href="#s8" data-toc="s8">08. Context propagation</a></li>
+            <li><a href="#s9" data-toc="s9">09. Not always simple trees</a></li>
+            <li><a href="#s10" data-toc="s10">10. Tool call observability</a></li>
+            <li><a href="#s11" data-toc="s11">11. Retrieval observability</a></li>
+            <li><a href="#s12" data-toc="s12">12. Private AWS architecture</a></li>
+            <li><a href="#s13" data-toc="s13">13. CloudWatch vs Langfuse</a></li>
+            <li><a href="#s14" data-toc="s14">14. Langfuse architecture</a></li>
+            <li><a href="#s15" data-toc="s15">15. High cardinality</a></li>
+            <li><a href="#s16" data-toc="s16">16. Trace content levels</a></li>
+            <li><a href="#s17" data-toc="s17">17. Redaction before export</a></li>
+            <li><a href="#s18" data-toc="s18">18. Sampling</a></li>
+            <li><a href="#s19" data-toc="s19">19. Asynchronous telemetry</a></li>
+            <li><a href="#s20" data-toc="s20">20. What if Langfuse is down?</a></li>
+            <li><a href="#s21" data-toc="s21">21. Telemetry backpressure</a></li>
+            <li><a href="#s22" data-toc="s22">22. Cost attribution</a></li>
+            <li><a href="#s23" data-toc="s23">23. Latency / critical path</a></li>
+            <li><a href="#s24" data-toc="s24">24. Evaluations</a></li>
+            <li><a href="#s25" data-toc="s25">25. Prompt / config versioning</a></li>
+            <li><a href="#s26" data-toc="s26">26. Reference implementation</a></li>
+            <li><a href="#s27" data-toc="s27">27. Experiments</a></li>
+            <li><a href="#s28" data-toc="s28">28. Final architecture</a></li>
+            <li><a href="#s29" data-toc="s29">29. System boundary</a></li>
+          </ol>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="shell">
+      <div class="footer-name">Avivek Dwivedi</div>
+      <div>Applied AI Engineer</div>
+      <div class="footer-links">
+        <a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub ↗</a>
+      </div>
+      <div style="margin-top:12px;">&copy; <span id="year">2026</span> Avivek Dwivedi</div>
+    </div>
+  </footer>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>

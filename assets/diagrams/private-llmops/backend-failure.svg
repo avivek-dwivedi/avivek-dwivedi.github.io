@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 420" width="680" height="420" role="img" aria-labelledby="bfTitle bfDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="bfTitle">Observability backend failure isolation</title>
+  <desc id="bfDesc">When the observability backend (Langfuse) becomes unavailable, the AI execution path remains independent. The telemetry pipeline experiences failure: bounded retry, temporary buffer, sampling, and drop lower-value telemetry prevent unlimited application impact. The application continues where policy permits.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 5; ry: 5; }
+    .app { fill: #dafbe1; stroke: #2da44e; stroke-width: 1.5; rx: 6; ry: 6; }
+    .queue { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 5; ry: 5; }
+    .collector { fill: #f6f8fa; stroke: #6e7781; stroke-width: 1; rx: 5; ry: 5; }
+    .fail { fill: #ffebe9; stroke: #ff8182; stroke-width: 1.5; rx: 6; ry: 6; }
+    .policy { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 5; ry: 5; }
+    .t { font-size: 13px; fill: #1f2328; text-anchor: middle; font-weight: 600; }
+    .small { font-size: 11px; fill: #59636e; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+    .arrow { fill: #59636e; }
+    .ok { stroke: #2da44e; stroke-width: 1.5; }
+    .err { stroke: #ff8182; stroke-width: 1.5; stroke-dasharray: 5,3; }
+    .warn { font-size: 12px; fill: #ff8182; text-anchor: middle; font-weight: 700; }
+  </style>
+
+  <!-- AI execution (top, independent) -->
+  <rect class="app" x="40" y="20" width="180" height="36"/><text class="t" x="130" y="43">AI Execution</text>
+  <line class="ok" x1="130" y1="56" x2="130" y2="76"/>
+  <polygon class="arrow" points="126,72 130,80 134,72" fill="#2da44e"/>
+  <rect class="app" x="40" y="82" width="180" height="36"/><text class="t" x="130" y="105">Response ✓</text>
+  <text class="small" x="130" y="135" style="fill:#2da44e">remains independent</text>
+
+  <!-- Telemetry pipeline (bottom) -->
+  <rect class="queue" x="320" y="20" width="160" height="36"/><text class="t" x="400" y="43">Bounded Queue</text>
+  <line class="edge" x1="400" y1="56" x2="400" y2="76"/>
+  <polygon class="arrow" points="396,72 400,80 404,72"/>
+
+  <rect class="collector" x="320" y="82" width="160" height="36"/><text class="t" x="400" y="105">OTel Collector</text>
+  <line class="edge" x1="400" y1="118" x2="400" y2="138"/>
+  <polygon class="arrow" points="396,134 400,142 404,134"/>
+
+  <rect class="fail" x="320" y="144" width="160" height="40"/>
+  <text class="t" x="400" y="168">Langfuse</text>
+  <text class="warn" x="400" y="183">UNAVAILABLE</text>
+
+  <!-- Failure policies -->
+  <line class="err" x1="400" y1="190" x2="400" y2="210"/>
+  <rect class="policy" x="60" y="216" width="560" height="100"/>
+  <text class="t" x="340" y="240">Bounded Failure Policy</text>
+  <text class="small" x="340" y="260">bounded retry · temporary buffer · sampling</text>
+  <text class="small" x="340" y="278">drop lower-value telemetry · dead-letter where required</text>
+  <text class="small" x="340" y="296">application continues where policy permits</text>
+
+  <text class="lbl" x="340" y="350">Should observability failure fail the AI request?</text>
+  <text class="lbl" x="340" y="370">For many systems: no — observability should be fail-open relative to inference</text>
+  <text class="lbl" x="340" y="390">Audit-critical workflows may require different policies</text>
+</svg>

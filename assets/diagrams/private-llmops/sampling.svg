@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 440" width="680" height="440" role="img" aria-labelledby="smTitle smDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="smTitle">Head vs tail sampling</title>
+  <desc id="smDesc">Left: head sampling — the sample decision is made when the trace begins, before knowing whether it will be slow, expensive, failed, or interesting. Right: tail sampling — the trace executes fully, then the sample decision is made after seeing error, latency, and cost outcomes, enabling retention of failures while sampling normal traffic.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 5; ry: 5; }
+    .decision { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1.5; rx: 5; ry: 5; }
+    .exec { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 5; ry: 5; }
+    .drop { fill: #ffebe9; stroke: #ff8182; stroke-width: 1; rx: 5; ry: 5; }
+    .keep { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 5; ry: 5; }
+    .hdr { font-size: 14px; fill: #1f2328; text-anchor: middle; font-weight: 700; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+    .arrow { fill: #59636e; }
+    .sep { stroke: #d0d7de; stroke-width: 1; stroke-dasharray: 8,4; }
+  </style>
+
+  <text class="hdr" x="170" y="30">Head sampling</text>
+  <text class="hdr" x="510" y="30">Tail sampling</text>
+  <line class="sep" x1="340" y1="10" x2="340" y2="430"/>
+
+  <!-- LEFT: head -->
+  <rect class="box" x="80" y="50" width="180" height="34"/><text class="t" x="170" y="72">request</text>
+  <line class="edge" x1="170" y1="84" x2="170" y2="102"/>
+  <polygon class="arrow" points="166,98 170,106 174,98"/>
+
+  <rect class="decision" x="70" y="108" width="200" height="40"/><text class="t" x="170" y="133">sample decision</text>
+  <line class="edge" x1="170" y1="148" x2="170" y2="168"/>
+  <polygon class="arrow" points="166,164 170,172 174,164"/>
+
+  <rect class="exec" x="80" y="174" width="180" height="34"/><text class="t" x="170" y="196">trace executes</text>
+
+  <text class="lbl" x="170" y="240">Decision made before outcome is known</text>
+  <text class="lbl" x="170" y="258">Cannot retain failures selectively</text>
+  <text class="lbl" x="170" y="280">May drop the most interesting traces</text>
+
+  <!-- RIGHT: tail -->
+  <rect class="box" x="420" y="50" width="180" height="34"/><text class="t" x="510" y="72">request</text>
+  <line class="edge" x1="510" y1="84" x2="510" y2="102"/>
+  <polygon class="arrow" points="506,98 510,106 514,98"/>
+
+  <rect class="exec" x="420" y="108" width="180" height="40"/><text class="t" x="510" y="133">trace executes</text>
+  <line class="edge" x1="510" y1="148" x2="510" y2="168"/>
+  <polygon class="arrow" points="506,164 510,172 514,164"/>
+
+  <rect class="box" x="400" y="174" width="220" height="50"/>
+  <text class="t" x="510" y="194" style="font-size:11px">error / latency / cost known</text>
+  <text class="t" x="510" y="212" style="font-size:11px">outcome visible</text>
+  <line class="edge" x1="510" y1="224" x2="510" y2="242"/>
+  <polygon class="arrow" points="506,238 510,246 514,238"/>
+
+  <rect class="decision" x="410" y="248" width="200" height="40"/><text class="t" x="510" y="273">sample decision</text>
+
+  <line class="edge" x1="510" y1="288" x2="460" y2="310" style="stroke-dasharray:4,3"/>
+  <line class="edge" x1="510" y1="288" x2="560" y2="310" style="stroke-dasharray:4,3"/>
+  <polygon class="arrow" points="456,306 462,314 466,308"/>
+  <polygon class="arrow" points="556,308 562,314 566,306"/>
+
+  <rect class="drop" x="400" y="316" width="120" height="30"/><text class="t" x="460" y="336" style="font-size:11px">drop normal</text>
+  <rect class="keep" x="540" y="316" width="120" height="30"/><text class="t" x="600" y="336" style="font-size:11px">keep failures</text>
+
+  <text class="lbl" x="510" y="380">Retain errors, high-latency, high-cost traces</text>
+  <text class="lbl" x="510" y="398">while sampling normal successful traffic</text>
+
+  <text class="lbl" x="340" y="425">Not every deployment needs tail sampling — match to backend cost and debug requirements</text>
+</svg>

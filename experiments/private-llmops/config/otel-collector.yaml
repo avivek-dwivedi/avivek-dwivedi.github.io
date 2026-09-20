@@ -1,0 +1,79 @@
+# OpenTelemetry Collector configuration for the Private LLMOps lab.
+#
+# This Collector receives telemetry from the application and routes it:
+# - AI telemetry (gen_ai spans) → Langfuse OTLP endpoint
+# - All other telemetry → console (or CloudWatch in production)
+#
+# In production, add a tail_sampling processor and a CloudWatch exporter.
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Batch telemetry for efficient export
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+    send_batch_max_size: 2048
+
+  # Filter: route GenAI spans to Langfuse, other spans to infra monitoring
+  # In production, use a filter processor or attributes processor here.
+  # filter/ai:
+  #   traces:
+  #     span:
+  #       - 'attributes["gen_ai.operation.name"] != nil'
+
+  # Tail sampling (optional, for production):
+  # tail_sampling:
+  #   decision_wait: 10s
+  #   policies:
+  #     - name: errors
+  #       type: status_code
+  #       status_code:
+  #         status_codes: [ERROR]
+  #     - name: slow-traces
+  #       type: latency
+  #       latency:
+  #         threshold_ms: 5000
+  #     - name: sample-normal
+  #       type: probabilistic
+  #       probabilistic:
+  #         sampling_percentage: 10
+
+  # Redaction processor (OTel Collector Processor for redaction)
+  # In production, use the transform processor or a custom processor
+  # to strip sensitive attributes before export.
+  # transform/redact:
+  #   trace_statements:
+  #     - actions:
+  #       - key: prompt.raw
+  #         action: delete
+  #       - key: tool.arguments.raw
+  #         action: delete
+
+exporters:
+  # Export to Langfuse (AI telemetry)
+  otlp/langfuse:
+    endpoint: ${env:LANGFUSE_OTLP_ENDPOINT:-http://localhost:3000/api/public/otel}
+    headers:
+      Authorization: "Basic ${env:LANGFUSE_AUTH}"
+
+  # Export to console (for local debugging)
+  debug/console:
+    verbosity: basic
+
+  # In production: export to CloudWatch for infrastructure telemetry
+  # cloudwatch:
+  #   ...
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug/console]
+      # In production: use filter processor to split AI vs infra telemetry
+      # exporters: [otlp/langfuse, cloudwatch]

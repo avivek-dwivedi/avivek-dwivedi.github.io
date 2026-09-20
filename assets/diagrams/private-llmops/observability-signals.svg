@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" role="img" aria-labelledby="osTitle osDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="osTitle">Four observability signals for AI systems</title>
+  <desc id="osDesc">Four connected blocks: Metrics answer what is happening across the system, Logs answer what event happened, Traces answer what happened to a specific workflow, Evaluations answer whether the AI behavior was actually good. Infrastructure health, execution events, request causality, and AI quality are distinct concerns.</desc>
+
+  <style>
+    .sig { stroke-width: 1.5; rx: 8; ry: 8; }
+    .metrics { fill: #ddf4ff; stroke: #2f81f7; }
+    .logs { fill: #f6f8fa; stroke: #6e7781; }
+    .traces { fill: #dafbe1; stroke: #2da44e; }
+    .evals { fill: #fbefff; stroke: #8957e5; }
+    .t { font-size: 16px; fill: #1f2328; text-anchor: middle; font-weight: 700; }
+    .q { font-size: 12px; fill: #59636e; text-anchor: middle; font-style: italic; }
+    .ex { font-size: 11px; fill: #6e7781; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1; fill: none; stroke-dasharray: 4,3; }
+  </style>
+
+  <rect class="sig metrics" x="40" y="30" width="240" height="130"/>
+  <text class="t" x="160" y="58">Metrics</text>
+  <text class="q" x="160" y="80">"What is happening across the system?"</text>
+  <text class="ex" x="160" y="105">p95 latency · error rate · token usage</text>
+  <text class="ex" x="160" y="122">cost/hour · requests/sec</text>
+  <text class="ex" x="160" y="145">→ Infrastructure health</text>
+
+  <rect class="sig logs" x="360" y="30" width="240" height="130"/>
+  <text class="t" x="480" y="58">Logs</text>
+  <text class="q" x="480" y="80">"What event happened?"</text>
+  <text class="ex" x="480" y="105">tool timeout · worker restarted</text>
+  <text class="ex" x="480" y="122">provider 429 · invalid tool response</text>
+  <text class="ex" x="480" y="145">→ Execution events</text>
+
+  <rect class="sig traces" x="40" y="200" width="240" height="130"/>
+  <text class="t" x="160" y="228">Traces</text>
+  <text class="q" x="160" y="250">"What happened to this workflow?"</text>
+  <text class="ex" x="160" y="275">agent → model → retrieval → tool</text>
+  <text class="ex" x="160" y="292">→ another agent → response</text>
+  <text class="ex" x="160" y="315">→ Request causality</text>
+
+  <rect class="sig evals" x="360" y="200" width="240" height="130"/>
+  <text class="t" x="480" y="228">Evaluations</text>
+  <text class="q" x="480" y="250">"Was the AI output actually good?"</text>
+  <text class="ex" x="480" y="275">correctness · groundedness</text>
+  <text class="ex" x="480" y="292">tool correctness · trajectory quality</text>
+  <text class="ex" x="480" y="315">→ AI quality</text>
+
+  <line class="edge" x1="280" y1="95" x2="360" y2="95"/>
+  <line class="edge" x1="280" y1="265" x2="360" y2="265"/>
+  <line class="edge" x1="160" y1="160" x2="160" y2="200"/>
+  <line class="edge" x1="480" y1="160" x2="480" y2="200"/>
+  <line class="edge" x1="280" y1="130" x2="360" y2="200"/>
+  <line class="edge" x1="360" y1="130" x2="280" y2="200"/>
+
+  <text class="lbl" x="320" y="370">An AI system can be infrastructure-healthy and still be behaviorally wrong</text>
+  <text class="lbl" x="320" y="388">Not all observability platforms model these four signals identically</text>
+</svg>

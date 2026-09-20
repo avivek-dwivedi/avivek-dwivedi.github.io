@@ -18,7 +18,7 @@
   ],
   "current": {
     "title": "Private LLMOps for Multi-Agent Systems",
-    "focus": "OpenTelemetry, Langfuse, PostgreSQL and AWS",
-    "workingOn": "Building observability across LLM calls, agent steps, tool execution, evaluations, latency, token usage and cost."
+    "focus": "OpenTelemetry · Langfuse · AWS · multi-agent traces · context propagation · evaluations · cost/latency attribution",
+    "workingOn": "Designing end-to-end observability with OpenTelemetry, Langfuse, AWS and durable telemetry pipelines for production LLM and multi-agent systems."
   }
 }

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 440" width="680" height="440" role="img" aria-labelledby="atTitle atDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="atTitle">Synchronous vs asynchronous telemetry export</title>
+  <desc id="atDesc">Left: synchronous backend write — the AI workflow waits for the observability write to complete before returning the response. If the backend is slow, the application becomes slow. Right: buffered/asynchronous export — the execution path and telemetry path are separated. Telemetry goes through a bounded exporter to the collector and backend without blocking the response.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 5; ry: 5; }
+    .bad { fill: #ffebe9; stroke: #ff8182; stroke-width: 1.2; rx: 5; ry: 5; }
+    .good { fill: #dafbe1; stroke: #2da44e; stroke-width: 1.2; rx: 5; ry: 5; }
+    .telemetry { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 5; ry: 5; }
+    .hdr { font-size: 14px; fill: #1f2328; text-anchor: middle; font-weight: 700; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+    .arrow { fill: #59636e; }
+    .sep { stroke: #d0d7de; stroke-width: 1; stroke-dasharray: 8,4; }
+    .warn { font-size: 11px; fill: #ff8182; text-anchor: middle; font-weight: 600; }
+  </style>
+
+  <text class="hdr" x="170" y="30">Synchronous backend write</text>
+  <text class="hdr" x="510" y="30">Buffered / asynchronous export</text>
+  <line class="sep" x1="340" y1="10" x2="340" y2="430"/>
+
+  <!-- LEFT: sync -->
+  <rect class="box" x="90" y="55" width="160" height="34"/><text class="t" x="170" y="77">User Request</text>
+  <line class="edge" x1="170" y1="89" x2="170" y2="107"/>
+  <polygon class="arrow" points="166,103 170,111 174,103"/>
+
+  <rect class="box" x="90" y="113" width="160" height="34"/><text class="t" x="170" y="135">AI workflow</text>
+  <line class="edge" x1="170" y1="147" x2="170" y2="165"/>
+  <polygon class="arrow" points="166,161 170,169 174,161"/>
+
+  <rect class="bad" x="70" y="171" width="200" height="40"/><text class="t" x="170" y="196">synchronous observability write</text>
+  <line class="edge" x1="170" y1="211" x2="170" y2="229"/>
+  <polygon class="arrow" points="166,225 170,233 174,225"/>
+
+  <rect class="bad" x="100" y="235" width="140" height="30"/><text class="t" x="170" y="255" style="font-size:11px">wait</text>
+  <line class="edge" x1="170" y1="265" x2="170" y2="283"/>
+  <polygon class="arrow" points="166,279 170,287 174,279"/>
+
+  <rect class="box" x="90" y="289" width="160" height="34"/><text class="t" x="170" y="311">Response</text>
+
+  <text class="warn" x="170" y="360">If backend is slow → application is slow</text>
+  <text class="lbl" x="170" y="380">Telemetry on the latency-critical path</text>
+
+  <!-- RIGHT: async -->
+  <rect class="box" x="430" y="55" width="160" height="34"/><text class="t" x="510" y="77">User Request</text>
+  <line class="edge" x1="510" y1="89" x2="510" y2="107"/>
+  <polygon class="arrow" points="506,103 510,111 514,103"/>
+
+  <rect class="good" x="430" y="113" width="160" height="34"/><text class="t" x="510" y="135">Agent Application</text>
+
+  <!-- execution path -->
+  <line class="edge" x1="510" y1="147" x2="510" y2="290" style="stroke:#2da44e; stroke-width:1.5"/>
+  <polygon class="arrow" points="506,286 510,294 514,286" fill="#2da44e"/>
+  <rect class="box" x="430" y="295" width="160" height="34"/><text class="t" x="510" y="317">Response</text>
+  <text class="lbl" x="510" y="280" style="fill:#2da44e">execution path</text>
+
+  <!-- telemetry path -->
+  <line class="edge" x1="590" y1="130" x2="630" y2="130" style="stroke:#2f81f7"/>
+  <line class="edge" x1="630" y1="130" x2="630" y2="170" style="stroke:#2f81f7"/>
+  <polygon class="arrow" points="626,166 630,174 634,166" fill="#2f81f7"/>
+
+  <rect class="telemetry" x="560" y="178" width="100" height="30"/><text class="t" x="610" y="198" style="font-size:11px">bounded exporter</text>
+  <line class="edge" x1="610" y1="208" x2="610" y2="226" style="stroke:#2f81f7"/>
+  <polygon class="arrow" points="606,222 610,230 614,222" fill="#2f81f7"/>
+
+  <rect class="telemetry" x="560" y="232" width="100" height="30"/><text class="t" x="610" y="252" style="font-size:11px">OTel Collector</text>
+  <line class="edge" x1="610" y1="262" x2="610" y2="280" style="stroke:#2f81f7"/>
+  <polygon class="arrow" points="606,276 610,284 614,276" fill="#2f81f7"/>
+
+  <rect class="telemetry" x="560" y="286" width="100" height="30"/><text class="t" x="610" y="306" style="font-size:11px">backend</text>
+  <text class="lbl" x="610" y="340" style="fill:#2f81f7">telemetry path (async)</text>
+
+  <text class="lbl" x="340" y="400">Telemetry should generally not sit synchronously on the latency-critical path</text>
+  <text class="lbl" x="340" y="420">Audit-critical systems may intentionally require stronger delivery guarantees</text>
+</svg>

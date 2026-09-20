@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 680" width="520" height="680" role="img" aria-labelledby="maeTitle maeDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="maeTitle">Multi-agent execution from one user request</title>
+  <desc id="maeDesc">One user request enters a Supervisor which fans out to Planner and Retrieval. Planner calls an LLM then makes a tool decision. Retrieval feeds a Reranker. A Specialist Agent runs an LLM and a Tool. A Final Agent produces the response. One request creates many operations.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 6; ry: 6; }
+    .agent { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1.2; rx: 6; ry: 6; }
+    .llm { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 4; ry: 4; }
+    .tool { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 4; ry: 4; }
+    .ret { fill: #f6f8fa; stroke: #6e7781; stroke-width: 1; rx: 4; ry: 4; }
+    .resp { fill: #dafbe1; stroke: #2da44e; stroke-width: 1.5; rx: 6; ry: 6; }
+    .t { font-size: 13px; fill: #1f2328; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+    .arrow { fill: #59636e; }
+  </style>
+
+  <rect class="box" x="190" y="16" width="140" height="34"/><text class="t" x="260" y="38">User Request</text>
+  <line class="edge" x1="260" y1="50" x2="260" y2="72"/>
+  <polygon class="arrow" points="256,68 260,76 264,68"/>
+
+  <rect class="agent" x="190" y="78" width="140" height="36"/><text class="t" x="260" y="101">Supervisor</text>
+
+  <line class="edge" x1="260" y1="114" x2="260" y2="130"/>
+  <line class="edge" x1="120" y1="130" x2="400" y2="130"/>
+  <line class="edge" x1="120" y1="130" x2="120" y2="148"/>
+  <line class="edge" x1="400" y1="130" x2="400" y2="148"/>
+  <polygon class="arrow" points="116,144 120,152 124,144"/>
+  <polygon class="arrow" points="396,144 400,152 404,144"/>
+
+  <rect class="agent" x="50" y="155" width="140" height="36"/><text class="t" x="120" y="178">Planner</text>
+  <rect class="ret" x="330" y="155" width="140" height="36"/><text class="t" x="400" y="178">Retrieval</text>
+
+  <line class="edge" x1="120" y1="191" x2="120" y2="208"/>
+  <polygon class="arrow" points="116,204 120,212 124,204"/>
+  <rect class="llm" x="50" y="215" width="140" height="32"/><text class="t" x="120" y="236" style="font-size:12px">LLM</text>
+
+  <line class="edge" x1="400" y1="191" x2="400" y2="208"/>
+  <polygon class="arrow" points="396,204 400,212 404,204"/>
+  <rect class="ret" x="330" y="215" width="140" height="32"/><text class="t" x="400" y="236" style="font-size:12px">Reranker</text>
+
+  <line class="edge" x1="120" y1="247" x2="120" y2="264"/>
+  <polygon class="arrow" points="116,260 120,268 124,260"/>
+  <rect class="tool" x="40" y="270" width="160" height="32"/><text class="t" x="120" y="291" style="font-size:12px">Tool Decision</text>
+
+  <line class="edge" x1="200" y1="286" x2="260" y2="286" style="stroke-dasharray:4,3"/>
+  <line class="edge" x1="400" y1="247" x2="400" y2="280" style="stroke-dasharray:4,3"/>
+  <line class="edge" x1="260" y1="286" x2="260" y2="306"/>
+  <polygon class="arrow" points="256,302 260,310 264,302"/>
+
+  <rect class="tool" x="180" y="312" width="160" height="32"/><text class="t" x="260" y="333" style="font-size:12px">Tool</text>
+
+  <line class="edge" x1="260" y1="344" x2="260" y2="362"/>
+  <polygon class="arrow" points="256,358 260,366 264,358"/>
+
+  <rect class="agent" x="170" y="368" width="180" height="36"/><text class="t" x="260" y="391">Specialist Agent</text>
+
+  <line class="edge" x1="220" y1="404" x2="200" y2="422"/>
+  <line class="edge" x1="300" y1="404" x2="320" y2="422"/>
+  <polygon class="arrow" points="196,418 198,427 204,421"/>
+  <polygon class="arrow" points="316,421 322,427 324,418"/>
+
+  <rect class="llm" x="130" y="430" width="130" height="32"/><text class="t" x="195" y="451" style="font-size:12px">LLM</text>
+  <rect class="tool" x="270" y="430" width="130" height="32"/><text class="t" x="335" y="451" style="font-size:12px">Tool</text>
+
+  <line class="edge" x1="195" y1="462" x2="240" y2="488"/>
+  <line class="edge" x1="335" y1="462" x2="290" y2="488"/>
+  <polygon class="arrow" points="236,484 244,490 242,482"/>
+  <polygon class="arrow" points="294,482 292,490 300,484"/>
+
+  <rect class="agent" x="180" y="494" width="160" height="36"/><text class="t" x="260" y="517">Final Agent</text>
+
+  <line class="edge" x1="260" y1="530" x2="260" y2="548"/>
+  <polygon class="arrow" points="256,544 260,552 264,544"/>
+
+  <rect class="resp" x="190" y="554" width="140" height="34"/><text class="t" x="260" y="576">Response</text>
+
+  <text class="lbl" x="260" y="618">One user request → many operations across agents, models, tools and retrieval</text>
+  <text class="lbl" x="260" y="638">Without end-to-end traces, total latency tells us almost nothing</text>
+</svg>

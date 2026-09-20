@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" width="720" height="380" role="img" aria-labelledby="cp2Title cp2Desc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="cp2Title">Critical path in a parallel multi-agent workflow</title>
+  <desc id="cpDesc">Three agents execute in parallel: Agent A takes 10 seconds, Agent B takes 3 seconds, Agent C takes 5 seconds. An Aggregator runs after all three complete, taking 3 seconds. The critical path is Agent A plus Aggregator, totaling 13 seconds — not the sum of all durations (18 seconds). Parallel operations should not simply be added.</desc>
+
+  <style>
+    .bar-a { fill: #ffebe9; stroke: #ff8182; stroke-width: 1.5; }
+    .bar-b { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; }
+    .bar-c { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; }
+    .bar-agg { fill: #fbefff; stroke: #8957e5; stroke-width: 1; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: start; font-weight: 600; }
+    .small { font-size: 11px; fill: #59636e; text-anchor: middle; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .axis { stroke: #d0d7de; stroke-width: 1; }
+    .tick { font-size: 10px; fill: #6e7781; text-anchor: middle; font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .note { font-size: 11px; fill: #ff8182; text-anchor: middle; font-weight: 600; }
+    .bracket { stroke: #ff8182; stroke-width: 1.5; fill: none; }
+  </style>
+
+  <line class="axis" x1="160" y1="280" x2="660" y2="280"/>
+  <line class="axis" x1="660" y1="280" x2="810" y2="280" style="stroke-dasharray:3,2"/>
+  <text class="tick" x="160" y="300">0s</text>
+  <text class="tick" x="260" y="300">2s</text>
+  <text class="tick" x="360" y="300">4s</text>
+  <text class="tick" x="460" y="300">6s</text>
+  <text class="tick" x="560" y="300">8s</text>
+  <text class="tick" x="660" y="300">10s</text>
+  <text class="tick" x="810" y="300">13s</text>
+
+  <text class="t" x="20" y="55">Agent A</text>
+  <rect class="bar-a" x="160" y="40" width="500" height="30" rx="3" ry="3"/>
+  <text class="small" x="410" y="60">10s — critical path</text>
+
+  <text class="t" x="20" y="105">Agent B</text>
+  <rect class="bar-b" x="160" y="90" width="150" height="30" rx="3" ry="3"/>
+  <text class="small" x="235" y="110">3s</text>
+
+  <text class="t" x="20" y="155">Agent C</text>
+  <rect class="bar-c" x="160" y="140" width="250" height="30" rx="3" ry="3"/>
+  <text class="small" x="285" y="160">5s</text>
+
+  <text class="t" x="20" y="215">Aggregator</text>
+  <rect class="bar-agg" x="660" y="200" width="150" height="30" rx="3" ry="3"/>
+  <text class="small" x="735" y="220">3s</text>
+
+  <path class="bracket" d="M160,28 L160,22 L810,22 L810,28"/>
+  <text class="note" x="485" y="16">critical path = 13s (not 18s)</text>
+
+  <text class="lbl" x="440" y="345">Total latency ≠ sum of all durations when operations are parallel</text>
+  <text class="lbl" x="440" y="363">Trace timeline makes the critical path visible</text>
+</svg>

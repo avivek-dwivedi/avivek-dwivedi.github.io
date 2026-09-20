@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 460" width="760" height="460" role="img" aria-labelledby="cpTitle cpDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="cpTitle">Broken vs connected trace context propagation</title>
+  <desc id="cpDesc">Left side: without context propagation, four separate disconnected traces form for API, Supervisor, Research Agent, MCP, and Tool. Right side: with shared trace context (trace_id = abc), all components form child spans under a single end-to-end trace.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 5; ry: 5; }
+    .broken { fill: #ffebe9; stroke: #ff8182; stroke-width: 1.2; rx: 5; ry: 5; }
+    .connected { fill: #dafbe1; stroke: #2da44e; stroke-width: 1.2; rx: 5; ry: 5; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; }
+    .hdr { font-size: 14px; fill: #1f2328; text-anchor: middle; font-weight: 700; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1; fill: none; }
+    .dash { stroke: #ff8182; stroke-width: 1.2; fill: none; stroke-dasharray: 5,3; }
+    .solid { stroke: #2da44e; stroke-width: 1.2; fill: none; }
+    .arrow { fill: #59636e; }
+    .tid { font-size: 10px; fill: #8b5cf6; text-anchor: middle; font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 600; }
+    .sep { stroke: #d0d7de; stroke-width: 1; stroke-dasharray: 8,4; }
+  </style>
+
+  <text class="hdr" x="180" y="30">Broken propagation</text>
+  <text class="hdr" x="580" y="30">Connected propagation</text>
+  <line class="sep" x1="380" y1="10" x2="380" y2="450"/>
+
+  <!-- LEFT: 4 separate traces -->
+  <rect class="broken" x="80" y="50" width="200" height="30"/><text class="t" x="180" y="70">API</text>
+  <text class="tid" x="330" y="70">trace: a1b2</text>
+
+  <rect class="broken" x="80" y="110" width="200" height="30"/><text class="t" x="180" y="130">Supervisor</text>
+  <text class="tid" x="330" y="130">trace: c3d4</text>
+
+  <rect class="broken" x="80" y="170" width="200" height="30"/><text class="t" x="180" y="190">Research Agent</text>
+  <text class="tid" x="330" y="190">trace: e5f6</text>
+
+  <rect class="broken" x="80" y="230" width="200" height="30"/><text class="t" x="180" y="250">MCP Server</text>
+  <text class="tid" x="330" y="250">trace: g7h8</text>
+
+  <rect class="broken" x="80" y="290" width="200" height="30"/><text class="t" x="180" y="310">Tool</text>
+  <text class="tid" x="330" y="310">trace: i9j0</text>
+
+  <text class="lbl" x="180" y="350">Five fragments — no causality</text>
+  <text class="lbl" x="180" y="370">Cannot reconstruct what happened</text>
+
+  <!-- RIGHT: single connected trace -->
+  <rect class="connected" x="480" y="50" width="200" height="30"/><text class="t" x="580" y="70">API</text>
+  <text class="tid" x="730" y="70">trace: abc</text>
+  <line class="solid" x1="580" y1="80" x2="580" y2="100"/>
+  <polygon class="arrow" points="576,96 580,104 584,96" fill="#2da44e"/>
+
+  <rect class="connected" x="480" y="106" width="200" height="30"/><text class="t" x="580" y="126">Supervisor</text>
+  <text class="tid" x="730" y="126">child of API</text>
+  <line class="solid" x1="580" y1="136" x2="580" y2="156"/>
+  <polygon class="arrow" points="576,152 580,160 584,152" fill="#2da44e"/>
+
+  <rect class="connected" x="480" y="162" width="200" height="30"/><text class="t" x="580" y="182">Research Agent</text>
+  <text class="tid" x="730" y="182">child of Supervisor</text>
+  <line class="solid" x1="580" y1="192" x2="580" y2="212"/>
+  <polygon class="arrow" points="576,208 580,216 584,208" fill="#2da44e"/>
+
+  <rect class="connected" x="480" y="218" width="200" height="30"/><text class="t" x="580" y="238">MCP Server</text>
+  <text class="tid" x="730" y="238">child of Research</text>
+  <line class="solid" x1="580" y1="248" x2="580" y2="268"/>
+  <polygon class="arrow" points="576,264 580,272 584,264" fill="#2da44e"/>
+
+  <rect class="connected" x="480" y="274" width="200" height="30"/><text class="t" x="580" y="294">Tool</text>
+  <text class="tid" x="730" y="294">child of MCP</text>
+
+  <text class="lbl" x="580" y="350">One end-to-end trace — full causality</text>
+  <text class="lbl" x="580" y="370">Each component creates a child span</text>
+
+  <text class="lbl" x="380" y="420">trace identity must cross process / service / tool boundaries</text>
+  <text class="lbl" x="380" y="440">W3C Trace Context (traceparent) carries trace_id + parent_span_id</text>
+</svg>
