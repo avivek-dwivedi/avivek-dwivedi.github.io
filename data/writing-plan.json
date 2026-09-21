@@ -14,11 +14,16 @@
       "title": "Building LLM APIs Under Production Limits",
       "focus": "Adaptive rate limiting, TPM/RPM, queues, prompt caching, streaming recovery and bounded memory",
       "url": "/articles/llm-api-production-limits.html"
+    },
+    {
+      "title": "Private LLMOps for Multi-Agent Systems",
+      "focus": "OpenTelemetry, Langfuse, AWS, multi-agent traces, context propagation, evaluations, cost/latency attribution",
+      "url": "/articles/private-llmops-multi-agent.html"
     }
   ],
   "current": {
-    "title": "Private LLMOps for Multi-Agent Systems",
-    "focus": "OpenTelemetry · Langfuse · AWS · multi-agent traces · context propagation · evaluations · cost/latency attribution",
-    "workingOn": "Designing end-to-end observability with OpenTelemetry, Langfuse, AWS and durable telemetry pipelines for production LLM and multi-agent systems."
+    "title": "Kubernetes for AI/ML Workloads",
+    "focus": "GPU scheduling, model serving, CPU/GPU workloads, KServe",
+    "workingOn": "Designing Kubernetes infrastructure for AI/ML workloads including GPU scheduling, model serving, CPU/GPU workload separation and KServe integration."
   }
 }

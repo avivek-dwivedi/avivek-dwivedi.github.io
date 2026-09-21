@@ -6,7 +6,22 @@
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://avivek-dwivedi.github.io/articles/llm-inference-engineering.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://avivek-dwivedi.github.io/articles/production-llm-serving.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://avivek-dwivedi.github.io/articles/llm-api-production-limits.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://avivek-dwivedi.github.io/articles/private-llmops-multi-agent.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
