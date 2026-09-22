@@ -1685,3 +1685,11 @@ sup.ref a:hover { text-decoration: underline; }
 
 /* Hide old featured-writing/roadmap/coming/serving-mini/vis-diagram no longer used on home */
 .featured-writing, .roadmap, .coming-heading, .coming-list, .serving-mini, .vis-diagram { display: none; }
+
+/* Series group label inside Engineering Notebook */
+.notebook-series-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+}

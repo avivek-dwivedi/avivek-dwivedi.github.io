@@ -118,29 +118,58 @@
   function renderPlan(container, plan) {
     container.innerHTML = "";
 
-    // Published
+    // Published — group by series
     var pubs = plan.published || [];
     if (pubs.length) {
-      var pubBlock = el("div", "notebook-block");
-      pubBlock.appendChild(el("p", "notebook-label", "Published / " + String(pubs.length).padStart(2, "0")));
+      // Series metadata
+      var seriesMeta = {
+        "production-ai-systems": "Production AI Systems",
+        "model-adaptation": "Model Adaptation & Post-Training"
+      };
 
-      pubs.forEach(function (p, i) {
-        var item = el("div", "notebook-pub-item");
-        var num = el("span", "notebook-num", String(i + 1).padStart(2, "0"));
-        item.appendChild(num);
-        item.appendChild(el("h3", "notebook-title", p.title));
-        if (p.focus) item.appendChild(el("p", "notebook-focus", p.focus));
-        if (p.url) {
-          var a = el("a", "notebook-link", "Read →");
-          a.href = p.url;
-          item.appendChild(a);
+      // Group articles by series (backward-compatible: no series = production-ai-systems)
+      var groups = {};
+      var groupOrder = [];
+      pubs.forEach(function (p) {
+        var s = p.series || "production-ai-systems";
+        if (!groups[s]) {
+          groups[s] = [];
+          groupOrder.push(s);
         }
-        pubBlock.appendChild(item);
-        if (i < pubs.length - 1) {
-          pubBlock.appendChild(el("hr", "div"));
+        groups[s].push(p);
+      });
+
+      groupOrder.forEach(function (seriesKey) {
+        var items = groups[seriesKey];
+        var seriesLabel = seriesMeta[seriesKey] || seriesKey;
+
+        var seriesBlock = el("div", "notebook-block");
+        seriesBlock.appendChild(el("p", "notebook-series-label", seriesLabel));
+        seriesBlock.appendChild(el("p", "notebook-label", "Published / " + String(items.length).padStart(2, "0")));
+
+        items.forEach(function (p, i) {
+          var item = el("div", "notebook-pub-item");
+          var num = el("span", "notebook-num", String(i + 1).padStart(2, "0"));
+          item.appendChild(num);
+          item.appendChild(el("h3", "notebook-title", p.title));
+          if (p.focus) item.appendChild(el("p", "notebook-focus", p.focus));
+          if (p.url) {
+            var a = el("a", "notebook-link", "Read →");
+            a.href = p.url;
+            item.appendChild(a);
+          }
+          seriesBlock.appendChild(item);
+          if (i < items.length - 1) {
+            seriesBlock.appendChild(el("hr", "div"));
+          }
+        });
+        container.appendChild(seriesBlock);
+
+        // Add divider between series groups (not after the last one if current follows)
+        if (groupOrder.indexOf(seriesKey) < groupOrder.length - 1) {
+          container.appendChild(el("hr", "div"));
         }
       });
-      container.appendChild(pubBlock);
     }
 
     // Current
