@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 480" width="680" height="480" role="img" aria-labelledby="dmTitle dmDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="dmTitle">Adaptation decision matrix</title>
+  <desc id="dmDesc">A decision matrix showing when to use different interventions: better prompting, structured decoding, retrieval augmentation, tool use, alternative model, SFT, preference optimization, or specialist model. The decision depends on error category: missing knowledge, instruction following, output format, domain language, or capability limitation.</desc>
+
+  <style>
+    .hdr { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1; rx: 5; ry: 5; }
+    .prompt { fill: #ddf4ff; stroke: #2f81f7; stroke-width: 1; rx: 4; ry: 4; }
+    .retrieval { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 4; ry: 4; }
+    .train { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 4; ry: 4; }
+    .specialist { fill: #fbefff; stroke: #8957e5; stroke-width: 1; rx: 4; ry: 4; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; font-weight: 600; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .cell { font-size: 11px; fill: #1f2328; text-anchor: middle; }
+    .yes { fill: #2da44e; font-weight: 700; }
+    .no { fill: #6e7781; }
+    .maybe { fill: #d4a72c; font-weight: 600; }
+    .edge { stroke: #d0d7de; stroke-width: 1; fill: none; }
+  </style>
+
+  <!-- Column headers -->
+  <rect class="hdr" x="160" y="20" width="100" height="34"/><text class="t" x="210" y="42">Better Prompting</text>
+  <rect class="hdr" x="270" y="20" width="100" height="34"/><text class="t" x="320" y="42">Retrieval</text>
+  <rect class="hdr" x="380" y="20" width="100" height="34"/><text class="t" x="430" y="42">SFT / PEFT</text>
+  <rect class="hdr" x="490" y="20" width="100" height="34"/><text class="t" x="540" y="42">Specialist Model</text>
+
+  <!-- Row: Missing knowledge -->
+  <rect class="hdr" x="20" y="64" width="130" height="34"/><text class="t" x="85" y="86">Missing knowledge</text>
+  <text class="cell maybe" x="210" y="86">Maybe</text>
+  <text class="cell yes" x="320" y="86">Yes</text>
+  <text class="cell no" x="430" y="86">No</text>
+  <text class="cell no" x="540" y="86">No</text>
+  <line class="edge" x1="20" y1="98" x2="590" y2="98"/>
+
+  <!-- Row: Instruction following -->
+  <rect class="hdr" x="20" y="100" width="130" height="34"/><text class="t" x="85" y="122">Instruction following</text>
+  <text class="cell yes" x="210" y="122">Yes</text>
+  <text class="cell no" x="320" y="122">No</text>
+  <text class="cell yes" x="430" y="122">Yes</text>
+  <text class="cell maybe" x="540" y="122">Maybe</text>
+  <line class="edge" x1="20" y1="134" x2="590" y2="134"/>
+
+  <!-- Row: Output format -->
+  <rect class="hdr" x="20" y="136" width="130" height="34"/><text class="t" x="85" y="158">Output format</text>
+  <text class="cell yes" x="210" y="158">Yes</text>
+  <text class="cell no" x="320" y="158">No</text>
+  <text class="cell yes" x="430" y="158">Yes</text>
+  <text class="cell maybe" x="540" y="158">Maybe</text>
+  <line class="edge" x1="20" y1="170" x2="590" y2="170"/>
+
+  <!-- Row: Domain language -->
+  <rect class="hdr" x="20" y="172" width="130" height="34"/><text class="t" x="85" y="194">Domain language</text>
+  <text class="cell maybe" x="210" y="194">Maybe</text>
+  <text class="cell maybe" x="320" y="194">Maybe</text>
+  <text class="cell yes" x="430" y="194">Yes</text>
+  <text class="cell yes" x="540" y="194">Yes</text>
+  <line class="edge" x1="20" y1="206" x2="590" y2="206"/>
+
+  <!-- Row: Capability limit -->
+  <rect class="hdr" x="20" y="208" width="130" height="34"/><text class="t" x="85" y="230">Capability limit</text>
+  <text class="cell no" x="210" y="230">No</text>
+  <text class="cell no" x="320" y="230">No</text>
+  <text class="cell maybe" x="430" y="230">Maybe</text>
+  <text class="cell yes" x="540" y="230">Yes</text>
+
+  <text class="lbl" x="305" y="290">The decision depends on the error category — not on fashion</text>
+  <text class="lbl" x="305" y="310">Measure the error distribution before choosing the intervention</text>
+
+  <!-- Cost axis -->
+  <rect class="hdr" x="160" y="340" width="430" height="30"/>
+  <text class="t" x="210" y="360" style="font-size:10px; fill:#2da44e">Low cost</text>
+  <text class="t" x="320" y="360" style="font-size:10px; fill:#2da44e">Low cost</text>
+  <text class="t" x="430" y="360" style="font-size:10px; fill:#d4a72c">Medium cost</text>
+  <text class="t" x="540" y="360" style="font-size:10px; fill:#ff8182">High cost</text>
+
+  <text class="lbl" x="305" y="400">Left to right: increasing cost, complexity, and commitment</text>
+  <text class="lbl" x="305" y="420">Always exhaust cheaper interventions before training</text>
+  <text class="lbl" x="305" y="440">But do not use prompting to fix a capability limitation</text>
+</svg>

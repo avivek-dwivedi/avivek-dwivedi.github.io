@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Before the First Gradient: Data and Evaluation for Model Adaptation | Avivek Dwivedi</title>
+  <meta name="description" content="When is model fine-tuning justified? Establishing baselines, error taxonomy, data integrity, and evaluation design before modifying model weights.">
+  <link rel="canonical" href="https://avivek-dwivedi.github.io/articles/before-the-first-gradient.html">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Before the First Gradient: Data and Evaluation for Model Adaptation | Avivek Dwivedi">
+  <meta property="og:description" content="When is model fine-tuning justified? Establishing baselines, error taxonomy, data integrity, and evaluation design before modifying model weights.">
+  <meta property="og:url" content="https://avivek-dwivedi.github.io/articles/before-the-first-gradient.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Before the First Gradient: Data and Evaluation for Model Adaptation",
+    "description": "When is model fine-tuning justified? Establishing baselines, error taxonomy, data integrity, and evaluation design before modifying model weights.",
+    "author": { "@type": "Person", "name": "Avivek Dwivedi", "url": "https://avivek-dwivedi.github.io/" },
+    "publisher": { "@type": "Person", "name": "Avivek Dwivedi", "url": "https://avivek-dwivedi.github.io/" },
+    "mainEntityOfPage": { "@type": "WebPage", "@id": "https://avivek-dwivedi.github.io/articles/before-the-first-gradient.html" },
+    "articleSection": "Model Adaptation & Post-Training",
+    "keywords": ["model adaptation", "fine-tuning", "evaluation", "baselines", "data integrity", "contamination", "error taxonomy", "SFT", "LoRA", "decision framework"],
+    "dateModified": "2026-09-22"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#article-main">Skip to content</a>
+
+  <nav class="nav" aria-label="Primary">
+    <span class="nav-brand"><a href="/">AVIVEK</a></span>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/#systems">Systems</a></li>
+      <li><a href="/#engineering">Engineering</a></li>
+      <li><a href="/#writing">Writing</a></li>
+      <li><a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <main id="article-main">
+    <div class="shell">
+      <div class="article-hero">
+        <a class="back-home" href="/">← Back to home</a>
+        <p class="eyebrow">Model Adaptation & Post-Training · Series 02 · Article 01</p>
+        <h1>Before the First Gradient: Data and Evaluation for Model Adaptation</h1>
+        <p class="subtitle">When is model fine-tuning justified? Establishing baselines, error taxonomy, data integrity, and evaluation design before modifying model weights.</p>
+        <div class="article-meta">
+          <span>Avivek Dwivedi</span>
+          <span class="dot">·</span>
+          <span class="tag tag-accent">Advanced</span>
+          <span class="dot">·</span>
+ <span>Updated Sep 2026</span>
+          <span class="dot">·</span>
+          <span>Series 02 / Article 01</span>
+        </div>
+        <div class="meta" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <span class="tag">Evaluation Design</span>
+          <span class="tag">Baselines</span>
+          <span class="tag">Error Taxonomy</span>
+          <span class="tag">Data Integrity</span>
+          <span class="tag">Contamination</span>
+          <span class="tag">Adaptation Decision</span>
+        </div>
+        <p class="opening">A base model fails on a domain task. The team proposes fine-tuning. Before any gradient is computed, three questions must be answered: What exactly is the failure? Could a non-training intervention resolve it? And what evidence would prove that weight modification is the right response? This article builds the evaluation infrastructure that makes those questions answerable — and the decision framework that prevents fine-tuning from becoming the default solution to every model failure.</p>
+      </div>
+    </div>
+
+    <div class="article-shell">
+      <article class="article-body">
+
+        <h2 id="s1">01. The decision problem</h2>
+        <p>A base model produces incorrect, unstructured, or domain-inappropriate outputs on a particular task. The immediate instinct is to fine-tune. But the set of possible interventions is larger than "train the model":</p>
+        <ul>
+          <li><strong>Better prompting</strong> — a more carefully constructed prompt may resolve instruction-following failures</li>
+          <li><strong>Structured decoding</strong> — constrained output formats (JSON schema, regex grammars) may resolve formatting failures</li>
+          <li><strong>Retrieval augmentation</strong> — providing relevant context may resolve missing-knowledge failures</li>
+          <li><strong>Tool use</strong> — delegating computation or lookup to external tools may resolve capability gaps</li>
+          <li><strong>Different base model</strong> — a model with different pretraining or instruction tuning may already handle the task</li>
+          <li><strong>SFT (supervised fine-tuning)</strong> — modifying weights to improve instruction following, output format, or domain language</li>
+          <li><strong>Preference optimization</strong> — modifying weights to align output quality with human or verifiable preferences</li>
+          <li><strong>Smaller specialist model</strong> — distilling task capability into a cheaper model for deployment</li>
+        </ul>
+        <p>Each intervention has a different cost profile. Prompting is cheap to implement but adds inference latency. Retrieval requires infrastructure. SFT requires data, compute, and introduces regression risk. A specialist model requires the most investment but may reduce long-term inference cost.</p>
+        <p>The question is not "should we fine-tune?" but "which intervention is justified by the evidence?"</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/model-adaptation/decision-matrix.svg" role="img" aria-label="Adaptation decision matrix" style="width:100%; max-width:680px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 1 — The adaptation decision depends on the error category. Missing knowledge → retrieval. Instruction following → prompting or SFT. Capability limit → different or specialist model. Cost increases left to right.</figcaption>
+        </figure>
+
+        <div class="architecture-decision">
+          <span class="callout-label">Architecture Decision</span>
+          <p>Always exhaust cheaper interventions before training. But do not use prompting to fix a capability limitation, and do not use retrieval to fix an instruction-following problem. Match the intervention to the error category, not to the fashion.</p>
+        </div>
+
+        <h2 id="s2">02. Task specification and error taxonomy</h2>
+        <p>Before evaluating any model, define what "correct" means. This is the task specification. It includes:</p>
+        <ul>
+          <li><strong>Input space</strong> — what inputs the model will receive</li>
+          <li><strong>Output space</strong> — what outputs are valid (free text, JSON, classification labels, structured explanations)</li>
+          <li><strong>Success criteria</strong> — what makes an output correct (exact match, schema validity, semantic correctness, groundedness)</li>
+          <li><strong>Failure modes</strong> — the categories of errors that matter (wrong answer, right answer wrong format, hallucinated content, missing information, unsafe output)</li>
+        </ul>
+        <p>An <strong>error taxonomy</strong> is not a post-hoc classification of what went wrong. It is defined before evaluation and drives the scoring rubric. Without a pre-defined taxonomy, error analysis becomes cherry-picking — you find the failures that support your preferred intervention.</p>
+        <table class="article-table">
+          <thead><tr><th>Error category</th><th>Description</th><th>Plausible intervention</th></tr></thead>
+          <tbody>
+            <tr><td>Missing knowledge</td><td>Model lacks domain facts</td><td>Retrieval, different base model</td></tr>
+            <tr><td>Instruction following</td><td>Model understands the task but doesn't follow instructions</td><td>Better prompting, SFT</td></tr>
+            <tr><td>Output format</td><td>Content is correct but format is wrong</td><td>Structured decoding, SFT</td></tr>
+            <tr><td>Domain language</td><td>Model uses generic language instead of domain terminology</td><td>SFT, specialist model</td></tr>
+            <tr><td>Capability limit</td><td>Model fundamentally cannot perform the reasoning required</td><td>Different model, specialist model</td></tr>
+            <tr><td>Hallucination</td><td>Model generates unsupported statements</td><td>Retrieval, SFT with grounded data</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="s3">03. Baseline selection</h2>
+        <p>Baselines are not formalities. They are the control group for the adaptation experiment. If a baseline already solves the task, fine-tuning is unnecessary — and potentially harmful if it introduces regression.</p>
+        <p>Meaningful baselines for a model adaptation study:</p>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <h4>Baseline A</h4>
+            <ul>
+              <li>Frozen base model</li>
+              <li>Basic prompt</li>
+              <li>No special formatting</li>
+              <li>Establishes the floor</li>
+            </ul>
+          </div>
+          <div class="metric-card">
+            <h4>Baseline B</h4>
+            <ul>
+              <li>Frozen model</li>
+              <li>Optimized prompt</li>
+              <li>Few-shot examples</li>
+              <li>Tests if prompting suffices</li>
+            </ul>
+          </div>
+          <div class="metric-card">
+            <h4>Baseline C</h4>
+            <ul>
+              <li>Frozen model</li>
+              <li>Structured output</li>
+              <li>Schema/grammar constraints</li>
+              <li>Tests if formatting is the issue</li>
+            </ul>
+          </div>
+          <div class="metric-card">
+            <h4>Baseline D</h4>
+            <ul>
+              <li>Frozen model</li>
+              <li>+ Retrieval</li>
+              <li>Relevant context provided</li>
+              <li>Tests if knowledge is missing</li>
+            </ul>
+          </div>
+        </div>
+        <p>Do not force every baseline into every task. Include a baseline only if it tests a specific hypothesis about the error distribution. If the task is structured classification and formatting is not the issue, Baseline C adds noise without insight.</p>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/model-adaptation/baseline-comparison.svg" role="img" aria-label="Baseline comparison architecture" style="width:100%; max-width:640px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 2 — All baselines evaluated on the same held-out test set. Same inputs, same scoring, same metrics — controlled comparison.</figcaption>
+        </figure>
+
+        <h2 id="s4">04. Dataset construction and data integrity</h2>
+        <p>The dataset is the single most important artifact in a model adaptation study. If the data is flawed, every conclusion drawn from training and evaluation is compromised.</p>
+
+        <h3 id="s4a">Dataset provenance and licensing</h3>
+        <ul>
+          <li>Where did the data come from?</li>
+          <li>What license permits its use?</li>
+          <li>Was it generated by humans, by a model, or by a hybrid process?</li>
+          <li>If synthetic: what model generated it, and what prompt was used?</li>
+        </ul>
+
+        <h3 id="s4b">Deduplication and near-duplicate detection</h3>
+        <p>Duplicate training examples inflate apparent dataset size and cause the model to overfit to repeated patterns. Near-duplicates (paraphrased versions of the same content) are subtler but equally damaging.</p>
+        <ul>
+          <li><strong>Exact deduplication</strong> — hash-based comparison (SHA-256, MinHash)</li>
+          <li><strong>Near-duplicate detection</strong> — embedding similarity, SimHash, or fuzzy matching</li>
+          <li><strong>Cross-split deduplication</strong> — ensure no example in training appears (or nearly appears) in validation or test</li>
+        </ul>
+
+        <h3 id="s4c">Data contamination</h3>
+        <p>If the base model saw the test set during pretraining, evaluation scores are compromised. Contamination detection is not optional for credible evaluation.</p>
+        <ul>
+          <li><strong>n-gram overlap</strong> — check if test set sequences appear in common pretraining corpora</li>
+          <li><strong>Membership inference</strong> — statistical tests for whether the model has seen specific examples</li>
+          <li><strong>Canary insertion</strong> — insert synthetic canaries in the test set to detect memorization</li>
+        </ul>
+        <p>For this study, we use a synthetic dataset generated specifically for the task, which eliminates pretraining contamination by construction. The test set is held out from the data generation prompt to avoid leakage.</p>
+
+        <h3 id="s4d">Train/validation/test separation</h3>
+        <p>Split related document families together. If two examples are paraphrases or share a common source, they must not span train and test — otherwise the test set measures memorization, not generalization.</p>
+        <table class="article-table">
+          <thead><tr><th>Split</th><th>Purpose</th><th>Typical fraction</th></tr></thead>
+          <tbody>
+            <tr><td>Train</td><td>Weight updates (SFT) or prompt selection</td><td>70%</td></tr>
+            <tr><td>Validation</td><td>Hyperparameter selection, early stopping</td><td>15%</td></tr>
+            <tr><td>Test</td><td>Final held-out evaluation — touched once</td><td>15%</td></tr>
+          </tbody>
+        </table>
+
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/model-adaptation/data-integrity.svg" role="img" aria-label="Data integrity controls" style="width:100%; max-width:600px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 3 — Data integrity pipeline: deduplication, near-duplicate detection, contamination check, family-aware split, annotation consistency.</figcaption>
+        </figure>
+
+        <div class="article-callout">
+          <span class="callout-label">Critical Rule</span>
+          <p>The test set is touched <strong>once</strong> — for the final evaluation. Never repeatedly tune against the test set. If you select prompts, hyperparameters, or model variants based on test performance, you are doing validation, not testing. The test set ceases to be a generalization measure.</p>
+        </div>
+
+        <h3 id="s4e">Synthetic data limitations</h3>
+        <p>Synthetic data generated by a teacher model carries the teacher's biases, failure modes, and knowledge boundaries. It is useful for creating controlled evaluation sets and bounded training tasks, but it is not a substitute for human-verified domain data when correctness matters. Document the generation model, prompt, and filtering process.</p>
+
+        <h2 id="s5">05. Evaluation design</h2>
+        <p>Evaluation is not "run the model on the test set and compute accuracy." It is a designed experiment with defined metrics, statistical awareness, and error analysis.</p>
+
+        <h3 id="s5a">Metrics</h3>
+        <table class="article-table">
+          <thead><tr><th>Metric</th><th>What it measures</th><th>When to use</th></tr></thead>
+          <tbody>
+            <tr><td>Task accuracy</td><td>Is the answer correct?</td><td>Classification, exact match</td></tr>
+            <tr><td>Schema validity</td><td>Does the output match the required format?</td><td>Structured output tasks</td></tr>
+            <tr><td>Unsupported statement rate</td><td>What fraction of claims are ungrounded?</td><td>Explanation tasks</td></tr>
+            <tr><td>Failure category distribution</td><td>What types of errors occur?</td><td>All tasks — drives intervention decision</td></tr>
+            <tr><td>Latency</td><td>How long does inference take?</td><td>Deployment feasibility</td></tr>
+            <tr><td>Stability</td><td>Is the output consistent across runs/inputs?</td><td>Robustness assessment</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="s5b">Statistical uncertainty</h3>
+        <p>A single evaluation run on 50 examples produces a point estimate with wide confidence intervals. For credible comparison:</p>
+        <ul>
+          <li>Use enough test examples to distinguish meaningful differences (power analysis)</li>
+          <li>Report confidence intervals or standard errors, not just point estimates</li>
+          <li>Use bootstrap or Wilson intervals for proportion metrics</li>
+          <li>When comparing two systems, test whether the difference is statistically significant, not just whether one score is numerically higher</li>
+        </ul>
+
+        <h3 id="s5c">Out-of-distribution testing</h3>
+        <p>If the evaluation set only contains examples similar to the training data, it measures interpolation, not generalization. Include out-of-distribution examples — different phrasings, edge cases, and novel inputs — to test whether the model has learned the task or merely memorized patterns.</p>
+
+        <h2 id="s6">06. The evaluation pipeline</h2>
+        <figure class="figure">
+          <object type="image/svg+xml" data="/assets/diagrams/model-adaptation/evaluation-pipeline.svg" role="img" aria-label="Evaluation pipeline before training" style="width:100%; max-width:600px; margin:0 auto; display:block;"></object>
+          <figcaption class="figure-caption">Figure 4 — The evaluation pipeline: from task specification through baseline evaluation and error analysis to the adaptation decision.</figcaption>
+        </figure>
+        <p>The pipeline is linear but the decision is not. If the error analysis shows that retrieval would resolve the dominant failure category, the adaptation decision is "do not fine-tune — build retrieval." If the errors are in domain language and instruction following, SFT is justified. If the model lacks the fundamental capability, no amount of fine-tuning on this data will help — a different model is needed.</p>
+
+        <h2 id="s7">07. Reference task: technical operations assistant</h2>
+        <p>To make the evaluation methodology concrete, we define a bounded reference task:</p>
+        <div class="flow">Task: Incident classification + grounded explanation
+
+Input:  Sanitized incident description (synthetic)
+
+Output: {
+  "category": one of [infra, network, db, app, security],
+  "severity": one of [low, medium, high, critical],
+  "explanation": brief grounded explanation
+}
+
+Success: correct category AND correct severity AND
+         explanation contains no unsupported statements</div>
+        <p>This task has properties that make it suitable for the adaptation decision study:</p>
+        <ul>
+          <li><strong>Classification is measurable</strong> — exact match, no ambiguity</li>
+          <li><strong>Explanation quality is partially measurable</strong> — unsupported statement rate, groundedness</li>
+          <li><strong>Prompting is a meaningful baseline</strong> — a good prompt with category definitions may suffice</li>
+          <li><strong>Retrieval is relevant</strong> — providing runbook context may improve explanation grounding</li>
+          <li><strong>SFT is plausible</strong> — domain-specific incident language and classification patterns may benefit from weight adaptation</li>
+          <li><strong>Data is synthetic</strong> — generated from controlled templates, no real customer data, no pretraining contamination</li>
+        </ul>
+
+        <h2 id="s8">08. Reference implementation</h2>
+        <p>A reproducible evaluation lab implements the baseline comparison methodology. It uses mock model responses so the evaluation infrastructure can be tested without GPU resources or API costs.</p>
+        <div class="code-block">
+<span class="code-label">Lab structure</span>
+<pre>experiments/model-adaptation/
+├── README.md
+├── requirements.txt
+├── dataset.py              # Synthetic dataset generation
+├── baselines.py            # Baseline implementations (A-E)
+├── evaluation.py           # Scoring and metrics
+├── error_analysis.py       # Error categorization
+├── contamination.py        # Contamination and dedup checks
+├── config.py               # Task specification and config
+├── run_baselines.py        # Run all baselines on the test set
+├── run_evaluation.py       # Score and compare results
+└── results/
+    └── .gitkeep</pre>
+        </div>
+
+        <h3 id="s8a">Code sample — dataset contract</h3>
+        <div class="code-block">
+<span class="code-label">dataset.py — synthetic incident data generation</span>
+<pre>import json
+import random
+from pathlib import Path
+
+CATEGORIES = ["infra", "network", "db", "app", "security"]
+SEVERITIES = ["low", "medium", "high", "critical"]
+
+# Controlled templates for synthetic incident generation
+INCIDENT_TEMPLATES = {
+    "infra": [
+        "Disk usage on {host} reached {pct}% at {time}. "
+        "Root partition approaching capacity.",
+        "Memory pressure detected on {host}. "
+        "Available RAM dropped below {pct}MB.",
+    ],
+    "network": [
+        "Latency spike between {host} and {service}. "
+        "Round-trip time exceeded {ms}ms.",
+        "Connection timeout from {host} to {service} "
+        "on port {port}.",
+    ],
+    # ... additional categories
+}</pre>
+        </div>
+
+        <h3 id="s8b">Code sample — evaluation scoring</h3>
+        <div class="code-block">
+<span class="code-label">evaluation.py — scoring with error categories</span>
+<pre>from dataclasses import dataclass
+from typing import Literal
+
+@dataclass
+class EvalResult:
+    category_correct: bool
+    severity_correct: bool
+    schema_valid: bool
+    unsupported_statements: int
+    error_category: str  # from the pre-defined taxonomy
+    latency_ms: float
+
+def score_prediction(prediction: dict, ground_truth: dict) -> EvalResult:
+    """Score a single prediction against ground truth."""
+    cat_ok = prediction.get("category") == ground_truth["category"]
+    sev_ok = prediction.get("severity") == ground_truth["severity"]
+    schema_ok = all(k in prediction for k in
+                    ["category", "severity", "explanation"])
+
+    # Determine error category for failure analysis
+    if not cat_ok:
+        err = "wrong_category"
+    elif not sev_ok:
+        err = "wrong_severity"
+    elif not schema_ok:
+        err = "schema_invalid"
+    else:
+        err = "none"
+
+    return EvalResult(
+        category_correct=cat_ok,
+        severity_correct=sev_ok,
+        schema_valid=schema_ok,
+        unsupported_statements=0,  # computed by groundedness check
+        error_category=err,
+        latency_ms=0.0,
+    )</pre>
+        </div>
+
+        <h2 id="s9">09. Experiment design</h2>
+        <div class="experiment-card">
+          <div class="exp-head">
+            <h3>Experiment — Non-training baselines before fine-tuning</h3>
+            <span class="status">Methodology</span>
+          </div>
+          <p class="exp-goal"><strong>Research question:</strong> Does any non-training intervention resolve the task's failures, and what is the error distribution that would justify weight adaptation?</p>
+          <p class="exp-record-label">Hypotheses</p>
+          <ul>
+            <li>H1: An optimized prompt (Baseline B) significantly outperforms a basic prompt (Baseline A)</li>
+            <li>H2: Retrieval (Baseline D) reduces unsupported statements in explanations</li>
+            <li>H3: The dominant error category after best non-training baseline is "domain language" or "instruction following" — categories that SFT plausibly addresses</li>
+          </ul>
+          <p class="exp-record-label">Independent variables</p>
+          <ul>
+            <li>Prompting strategy (basic vs optimized vs few-shot)</li>
+            <li>Retrieval presence (with vs without context)</li>
+            <li>Model selection (base model vs alternative)</li>
+          </ul>
+          <p class="exp-record-label">Dependent variables</p>
+          <ul>
+            <li>Category accuracy (exact match)</li>
+            <li>Severity accuracy (exact match)</li>
+            <li>Schema validity rate</li>
+            <li>Unsupported statement rate</li>
+            <li>Failure category distribution</li>
+            <li>Latency per inference</li>
+          </ul>
+          <p class="exp-record-label">Controlled variables</p>
+          <ul>
+            <li>Test set (identical across all baselines)</li>
+            <li>Scoring rubric (identical)</li>
+            <li>Input preprocessing (identical)</li>
+            <li>Random seed (fixed for reproducibility)</li>
+          </ul>
+          <p class="exp-record-label">Decision criteria</p>
+          <ul>
+            <li>If any non-training baseline achieves &gt;90% category accuracy → do not fine-tune for classification</li>
+            <li>If unsupported statements are the dominant error and retrieval reduces them → build retrieval, not SFT</li>
+            <li>If domain language and instruction following are the dominant errors after best baseline → SFT is justified</li>
+            <li>If capability limitations dominate → consider a different or specialist model</li>
+          </ul>
+          <p class="exp-record-label">Status</p>
+          <ul>
+            <li>Not executed. Methodology and infrastructure defined. No results published.</li>
+          </ul>
+        </div>
+
+        <h2 id="s10">10. What evidence would cause us not to fine-tune?</h2>
+        <p>This is the most important question in the article. Fine-tuning is not free — it requires data engineering, compute, evaluation, regression testing, and ongoing maintenance of the adapted artifact. The evidence against fine-tuning is:</p>
+        <ul>
+          <li><strong>A well-constructed prompt achieves acceptable accuracy</strong> — the model can do the task; it just needed better instructions</li>
+          <li><strong>Retrieval resolves the dominant error</strong> — the model lacks knowledge, not capability</li>
+          <li><strong>Structured decoding fixes formatting</strong> — the model produces correct content in wrong format</li>
+          <li><strong>A different existing model already handles the task</strong> — no adaptation needed</li>
+          <li><strong>The error distribution is dominated by capability limitations</strong> — fine-tuning on this data will not fix a reasoning deficit</li>
+          <li><strong>The cost of data preparation exceeds the expected quality improvement</strong> — the ROI is negative</li>
+        </ul>
+
+        <div class="engineering-note">
+          <span class="callout-label">Engineering Principle</span>
+          <p>The default response to model failure should be <strong>diagnosis, not training</strong>. Fine-tuning is justified only when: (1) cheaper interventions have been measured and found insufficient, (2) the error distribution is consistent with what weight adaptation can address, and (3) the expected improvement justifies the cost of data, compute, and regression risk.</p>
+        </div>
+
+        <h2 id="s11">11. Connection to the series</h2>
+        <p>This article establishes the evaluation infrastructure and adaptation decision that the rest of the series builds on:</p>
+        <ul>
+          <li><strong>Article 02 (SFT & PEFT)</strong> — uses the dataset contract and evaluation protocol defined here</li>
+          <li><strong>Article 03 (Memory & Throughput)</strong> — uses the same model and data for memory experiments</li>
+          <li><strong>Article 04 (Preference Optimization)</strong> — builds on the SFT baseline from Article 02</li>
+          <li><strong>Article 09 (Model Release)</strong> — uses the evaluation gates defined here as release criteria</li>
+        </ul>
+        <p>The reference task (incident classification + grounded explanation) is the shared workload across the series. Each article extends the evaluation or training methodology, but the task definition and test set remain fixed.</p>
+
+        <h2 id="s12">12. System boundary</h2>
+        <p>This article owns: task specification, error taxonomy, baseline selection, dataset construction, data integrity, evaluation design, statistical uncertainty, the adaptation decision framework, and the reference task definition. It does <strong>not</strong> cover: SFT training implementation (Article 02), memory engineering (Article 03), preference optimization (Article 04), or distributed training (Article 08). It connects to the existing Production AI Systems series by providing the evaluation discipline that should precede any model modification.</p>
+
+        <div class="article-end">
+          <div class="next-article">
+            <p class="label">Next in Series 02</p>
+            <p class="title">SFT and Parameter-Efficient Adaptation: From Dataset to Adapter</p>
+            <p class="soon">Supervised fine-tuning objectives · LoRA internals · QLoRA · rank ablation · loss masking · adapter inference</p>
+          </div>
+        </div>
+
+        <h2 id="refs">References</h2>
+        <div class="references">
+          <ol>
+            <li id="ref1">Hugging Face. <em>Fine-tuning documentation</em>. <a href="https://huggingface.co/docs/transformers/en/training" rel="noopener">huggingface.co/docs/transformers/en/training</a> (retrieved September 2026)</li>
+            <li id="ref2">Hugging Face. <em>Evaluate library</em>. <a href="https://huggingface.co/docs/evaluate/en/index" rel="noopener">huggingface.co/docs/evaluate</a></li>
+            <li id="ref3">Hu et al. <em>LoRA: Low-Rank Adaptation of Large Language Models</em>. arXiv:2106.09685. <a href="https://arxiv.org/abs/2106.09685" rel="noopener">arxiv.org/abs/2106.09685</a></li>
+            <li id="ref4">Dettmers et al. <em>QLoRA: Efficient Finetuning of Quantized LLMs</em>. arXiv:2305.14314. <a href="https://arxiv.org/abs/2305.14314" rel="noopener">arxiv.org/abs/2305.14314</a></li>
+            <li id="ref5">OpenAI. <em>Model optimization guide</em>. <a href="https://developers.openai.com/api/docs/guides/model-optimization" rel="noopener">developers.openai.com/api/docs/guides/model-optimization</a></li>
+            <li id="ref6">Rafailov et al. <em>Direct Preference Optimization</em>. arXiv:2305.18290. <a href="https://arxiv.org/abs/2305.18290" rel="noopener">arxiv.org/abs/2305.18290</a></li>
+          </ol>
+        </div>
+
+      </article>
+
+      <aside class="toc" aria-label="Table of contents">
+        <button class="toc-toggle" type="button" aria-expanded="true">On this page</button>
+        <div class="toc-list">
+          <h2>Contents</h2>
+          <ol>
+            <li><a href="#s1" data-toc="s1">01. The decision problem</a></li>
+            <li><a href="#s2" data-toc="s2">02. Task specification</a></li>
+            <li><a href="#s3" data-toc="s3">03. Baseline selection</a></li>
+            <li><a href="#s4" data-toc="s4">04. Dataset construction</a></li>
+            <li><a href="#s5" data-toc="s5">05. Evaluation design</a></li>
+            <li><a href="#s6" data-toc="s6">06. Evaluation pipeline</a></li>
+            <li><a href="#s7" data-toc="s7">07. Reference task</a></li>
+            <li><a href="#s8" data-toc="s8">08. Reference implementation</a></li>
+            <li><a href="#s9" data-toc="s9">09. Experiment design</a></li>
+            <li><a href="#s10" data-toc="s10">10. Not fine-tuning</a></li>
+            <li><a href="#s11" data-toc="s11">11. Connection to series</a></li>
+            <li><a href="#s12" data-toc="s12">12. System boundary</a></li>
+          </ol>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="shell">
+      <div class="footer-name">Avivek Dwivedi</div>
+      <div>Applied AI Engineer</div>
+      <div class="footer-links">
+        <a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub ↗</a>
+      </div>
+      <div style="margin-top:12px;">&copy; <span id="year">2026</span> Avivek Dwivedi</div>
+    </div>
+  </footer>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# Minimal dependencies for the evaluation lab.
+# No GPU, no model downloads required — uses mock responses.
+pydantic>=2.6.0
+rich>=13.0.0

@@ -23,6 +23,12 @@
       "focus": "OpenTelemetry, Langfuse, AWS, multi-agent traces, context propagation, evaluations, cost/latency attribution",
       "url": "/articles/private-llmops-multi-agent.html",
       "series": "production-ai-systems"
+    },
+    {
+      "title": "Before the First Gradient: Data and Evaluation for Model Adaptation",
+      "focus": "Task specification, error taxonomy, baseline selection, data integrity, contamination detection, evaluation design, adaptation decision framework",
+      "url": "/articles/before-the-first-gradient.html",
+      "series": "model-adaptation"
     }
   ],
   "current": {

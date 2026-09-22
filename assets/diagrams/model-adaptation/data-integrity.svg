@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" width="600" height="420" role="img" aria-labelledby="diTitle diDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <title id="diTitle">Data integrity controls</title>
+  <desc id="diDesc">Data integrity pipeline: raw data passes through deduplication, near-duplicate detection, contamination check against test set, train/validation/test split with related-document-family separation, and annotation consistency check before entering training.</desc>
+
+  <style>
+    .box { fill: #ffffff; stroke: #30363d; stroke-width: 1; rx: 5; ry: 5; }
+    .check { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1; rx: 5; ry: 5; }
+    .clean { fill: #dafbe1; stroke: #2da44e; stroke-width: 1; rx: 5; ry: 5; }
+    .danger { fill: #ffebe9; stroke: #ff8182; stroke-width: 1; rx: 5; ry: 5; }
+    .t { font-size: 12px; fill: #1f2328; text-anchor: middle; font-weight: 600; }
+    .lbl { font-size: 11px; fill: #6e7781; text-anchor: middle; letter-spacing: 0.04em; }
+    .edge { stroke: #59636e; stroke-width: 1.2; fill: none; }
+    .arrow { fill: #59636e; }
+    .small { font-size: 10px; fill: #59636e; text-anchor: middle; }
+  </style>
+
+  <rect class="box" x="200" y="20" width="200" height="34"/><text class="t" x="300" y="42">Raw Data</text>
+  <line class="edge" x1="300" y1="54" x2="300" y2="72"/>
+  <polygon class="arrow" points="296,68 300,76 304,68"/>
+
+  <rect class="check" x="180" y="78" width="240" height="34"/><text class="t" x="300" y="100">Exact Deduplication</text>
+  <line class="edge" x1="300" y1="112" x2="300" y2="130"/>
+  <polygon class="arrow" points="296,126 300,134 304,126"/>
+
+  <rect class="check" x="180" y="136" width="240" height="34"/><text class="t" x="300" y="158">Near-Duplicate Detection</text>
+  <text class="small" x="300" y="167">MinHash / SimHash / embedding similarity</text>
+  <line class="edge" x1="300" y1="170" x2="300" y2="188"/>
+  <polygon class="arrow" points="296,184 300,192 304,184"/>
+
+  <rect class="danger" x="160" y="194" width="280" height="40"/>
+  <text class="t" x="300" y="214">Contamination Check</text>
+  <text class="small" x="300" y="228">n-gram overlap with test set → remove or flag</text>
+  <line class="edge" x1="300" y1="234" x2="300" y2="252"/>
+  <polygon class="arrow" points="296,248 300,256 304,248"/>
+
+  <rect class="check" x="160" y="258" width="280" height="40"/>
+  <text class="t" x="300" y="278">Train / Val / Test Split</text>
+  <text class="small" x="300" y="292">Separate related document families</text>
+  <line class="edge" x1="300" y1="298" x2="300" y2="316"/>
+  <polygon class="arrow" points="296,312 300,320 304,312"/>
+
+  <rect class="clean" x="180" y="322" width="240" height="34"/><text class="t" x="300" y="344">Annotation Consistency</text>
+  <line class="edge" x1="300" y1="356" x2="300" y2="374"/>
+  <polygon class="arrow" points="296,370 300,378 304,370"/>
+
+  <rect class="clean" x="200" y="380" width="200" height="34"/><text class="t" x="300" y="402">Clean Dataset</text>
+
+  <text class="lbl" x="300" y="420" style="display:none"></text>
+</svg>
