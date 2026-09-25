@@ -123,8 +123,14 @@
     if (pubs.length) {
       // Series metadata
       var seriesMeta = {
-        "production-ai-systems": "Production AI Systems",
-        "model-adaptation": "Model Adaptation & Post-Training"
+        "production-ai-systems": {
+          label: "Production AI Systems",
+          desc: "Inference, serving, API reliability and observability."
+        },
+        "model-adaptation": {
+          label: "Model Adaptation & Post-Training",
+          desc: "Data, evaluation, model adaptation and post-training."
+        }
       };
 
       // Group articles by series (backward-compatible: no series = production-ai-systems)
@@ -141,10 +147,13 @@
 
       groupOrder.forEach(function (seriesKey) {
         var items = groups[seriesKey];
-        var seriesLabel = seriesMeta[seriesKey] || seriesKey;
+        var meta = seriesMeta[seriesKey] || { label: seriesKey, desc: "" };
 
         var seriesBlock = el("div", "notebook-block");
-        seriesBlock.appendChild(el("p", "notebook-series-label", seriesLabel));
+        seriesBlock.appendChild(el("p", "notebook-series-label", meta.label));
+        if (meta.desc) {
+          seriesBlock.appendChild(el("p", "notebook-series-desc", meta.desc));
+        }
         seriesBlock.appendChild(el("p", "notebook-label", "Published / " + String(items.length).padStart(2, "0")));
 
         items.forEach(function (p, i) {

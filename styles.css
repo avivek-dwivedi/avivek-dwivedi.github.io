@@ -1691,5 +1691,14 @@ sup.ref a:hover { text-decoration: underline; }
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
-  margin: 0 0 4px;
+  margin: 0 0 2px;
+}
+.notebook-series-desc {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin: 0 0 10px;
+  max-width: 480px;
+}
+.notebook-block:has(.notebook-series-label) {
+  padding-top: 10px;
 }
