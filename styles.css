@@ -1702,3 +1702,187 @@ sup.ref a:hover { text-decoration: underline; }
 .notebook-block:has(.notebook-series-label) {
   padding-top: 10px;
 }
+
+/* --- Series summary cards (homepage Engineering Notebook) --- */
+.series-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.series-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.series-card-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+.series-card-desc {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin: 0 0 8px;
+}
+.series-card-count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-mute);
+  margin: 0 0 14px;
+}
+.series-card-preview {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 12px;
+  margin-bottom: 14px;
+  flex-grow: 1;
+}
+.series-card-preview-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-text);
+  margin: 0 0 4px;
+}
+.series-card-preview-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  margin: 0 0 4px;
+}
+.series-card-preview-title:hover { color: var(--accent-text); }
+.series-card-preview-focus {
+  font-size: 12px;
+  color: var(--text-mute);
+  margin: 0;
+}
+.series-card-explore {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent-text);
+  text-decoration: none;
+  display: inline-block;
+}
+.series-card-explore:hover { text-decoration: underline; }
+
+/* Current work block in notebook */
+.notebook-series-ref {
+  font-size: 12px;
+  color: var(--text-mute);
+  margin: 0 0 4px;
+}
+.tag-status {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9a6700;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin: 4px 0 8px;
+}
+@media (prefers-color-scheme: dark) {
+  .tag-status { color: #d4a72c; }
+}
+
+/* --- Article index page --- */
+.article-index { display: flex; flex-direction: column; gap: 32px; }
+.index-jump-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.index-jump-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-mute);
+}
+.index-jump-link {
+  font-size: 14px;
+  color: var(--accent-text);
+  text-decoration: none;
+}
+.index-jump-link:hover { text-decoration: underline; }
+
+.index-series-section {
+  scroll-margin-top: calc(var(--nav-h) + 16px);
+}
+.index-series-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+.index-series-desc {
+  font-size: 14px;
+  color: var(--text-soft);
+  margin: 0 0 4px;
+}
+.index-series-count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-mute);
+  margin: 0 0 16px;
+}
+
+.index-article-row {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-soft);
+}
+.index-article-row:first-of-type { border-top: none; }
+.index-article-num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mute);
+}
+.index-article-body { min-width: 0; }
+.index-article-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  margin-bottom: 2px;
+}
+.index-article-title:hover { color: var(--accent-text); }
+.index-article-focus {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin: 0;
+}
+.index-current-row { padding-top: 14px; border-top: 1px dashed var(--border); margin-top: 4px; }
+.index-current-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-right: 8px;
+}
+.index-current-working {
+  font-size: 12px;
+  color: var(--text-mute);
+  margin: 4px 0 0;
+}

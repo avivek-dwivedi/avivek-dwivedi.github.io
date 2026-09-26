@@ -98,13 +98,17 @@
 
   // ---- Engineering Notebook: render writing-plan.json ----
   var planEl = document.getElementById("writing-plan");
+  var indexEl = document.getElementById("article-index");
   if (planEl && "fetch" in window) {
     fetch("/data/writing-plan.json", { cache: "no-cache" })
       .then(function (r) {
         if (!r.ok) throw new Error("not ok");
         return r.json();
       })
-      .then(function (plan) { renderPlan(planEl, plan); })
+      .then(function (plan) {
+        if (indexEl) renderArticleIndex(indexEl, plan);
+        else renderPlan(planEl, plan);
+      })
       .catch(function () { /* keep static fallback */ });
   }
 
@@ -115,88 +119,198 @@
     return n;
   }
 
+  // Series metadata with fallback
+  function getSeriesMeta(plan) {
+    return plan.series || {
+      "production-ai-systems": { title: "Production AI Systems", description: "", order: 1 },
+      "model-adaptation": { title: "Model Adaptation & Post-Training", description: "", order: 2 }
+    };
+  }
+
+  // Group published articles by series, sorted by seriesOrder then article seriesOrder
+  function groupBySeries(plan) {
+    var pubs = plan.published || [];
+    var seriesMeta = getSeriesMeta(plan);
+    var groups = {};
+    var groupOrder = [];
+
+    pubs.forEach(function (p) {
+      var s = p.series || "production-ai-systems";
+      if (!groups[s]) {
+        groups[s] = [];
+        groupOrder.push(s);
+      }
+      groups[s].push(p);
+    });
+
+    // Sort articles within each series by seriesOrder
+    Object.keys(groups).forEach(function (s) {
+      groups[s].sort(function (a, b) {
+        return (a.seriesOrder || 99) - (b.seriesOrder || 99);
+      });
+    });
+
+    // Sort series by their display order
+    groupOrder.sort(function (a, b) {
+      var oa = seriesMeta[a] ? seriesMeta[a].order : 99;
+      var ob = seriesMeta[b] ? seriesMeta[b].order : 99;
+      return oa - ob;
+    });
+
+    return { groups: groups, groupOrder: groupOrder, seriesMeta: seriesMeta };
+  }
+
+  // --- Homepage: compact series summary cards ---
   function renderPlan(container, plan) {
     container.innerHTML = "";
+    var g = groupBySeries(plan);
+    var seriesMeta = g.seriesMeta;
 
-    // Published — group by series
-    var pubs = plan.published || [];
-    if (pubs.length) {
-      // Series metadata
-      var seriesMeta = {
-        "production-ai-systems": {
-          label: "Production AI Systems",
-          desc: "Inference, serving, API reliability and observability."
-        },
-        "model-adaptation": {
-          label: "Model Adaptation & Post-Training",
-          desc: "Data, evaluation, model adaptation and post-training."
-        }
-      };
+    var cardGrid = el("div", "series-card-grid");
 
-      // Group articles by series (backward-compatible: no series = production-ai-systems)
-      var groups = {};
-      var groupOrder = [];
-      pubs.forEach(function (p) {
-        var s = p.series || "production-ai-systems";
-        if (!groups[s]) {
-          groups[s] = [];
-          groupOrder.push(s);
-        }
-        groups[s].push(p);
-      });
+    g.groupOrder.forEach(function (seriesKey) {
+      var items = g.groups[seriesKey];
+      if (items.length === 0) return;
 
-      groupOrder.forEach(function (seriesKey) {
-        var items = groups[seriesKey];
-        var meta = seriesMeta[seriesKey] || { label: seriesKey, desc: "" };
+      var meta = seriesMeta[seriesKey] || { title: seriesKey, description: "" };
+      var card = el("div", "series-card");
 
-        var seriesBlock = el("div", "notebook-block");
-        seriesBlock.appendChild(el("p", "notebook-series-label", meta.label));
-        if (meta.desc) {
-          seriesBlock.appendChild(el("p", "notebook-series-desc", meta.desc));
-        }
-        seriesBlock.appendChild(el("p", "notebook-label", "Published / " + String(items.length).padStart(2, "0")));
+      // Series title
+      card.appendChild(el("p", "series-card-title", meta.title));
 
-        items.forEach(function (p, i) {
-          var item = el("div", "notebook-pub-item");
-          var num = el("span", "notebook-num", String(i + 1).padStart(2, "0"));
-          item.appendChild(num);
-          item.appendChild(el("h3", "notebook-title", p.title));
-          if (p.focus) item.appendChild(el("p", "notebook-focus", p.focus));
-          if (p.url) {
-            var a = el("a", "notebook-link", "Read →");
-            a.href = p.url;
-            item.appendChild(a);
-          }
-          seriesBlock.appendChild(item);
-          if (i < items.length - 1) {
-            seriesBlock.appendChild(el("hr", "div"));
-          }
-        });
-        container.appendChild(seriesBlock);
+      // Description
+      if (meta.description) {
+        card.appendChild(el("p", "series-card-desc", meta.description));
+      }
 
-        // Add divider between series groups (not after the last one if current follows)
-        if (groupOrder.indexOf(seriesKey) < groupOrder.length - 1) {
-          container.appendChild(el("hr", "div"));
-        }
-      });
-    }
+      // Published count with singular/plural
+      var countText = items.length + (items.length === 1 ? " article" : " articles");
+      card.appendChild(el("p", "series-card-count", countText));
 
-    // Current
+      // Featured article preview (first in series order)
+      var featured = items[0];
+      var preview = el("div", "series-card-preview");
+      preview.appendChild(el("p", "series-card-preview-label", "Start here"));
+      var previewLink = el("a", "series-card-preview-title", featured.title);
+      if (featured.url) previewLink.href = featured.url;
+      preview.appendChild(previewLink);
+      if (featured.focus) {
+        preview.appendChild(el("p", "series-card-preview-focus", featured.focus));
+      }
+      card.appendChild(preview);
+
+      // Explore series link
+      var exploreLink = el("a", "series-card-explore", "Explore series →");
+      exploreLink.href = "/articles/#" + seriesKey;
+      card.appendChild(exploreLink);
+
+      cardGrid.appendChild(card);
+    });
+
+    container.appendChild(cardGrid);
+
+    // Current work — associated with its series
     if (plan.current) {
       var c = plan.current;
+      var currentSeries = c.series || "production-ai-systems";
+      var currentMeta = seriesMeta[currentSeries] || { title: currentSeries };
       container.appendChild(el("hr", "div"));
+
       var cblock = el("div", "notebook-block");
-      cblock.appendChild(el("p", "notebook-label", "Now"));
+      cblock.appendChild(el("p", "notebook-label", "Currently working on"));
+      cblock.appendChild(el("p", "notebook-series-ref", currentMeta.title));
       cblock.appendChild(el("h3", "notebook-title", c.title));
+
+      var statusTag = el("span", "tag tag-status", "In progress");
+      cblock.appendChild(statusTag);
+
       if (c.focus) {
-        var fcLine = el("p", "notebook-focus", c.focus);
-        cblock.appendChild(fcLine);
+        cblock.appendChild(el("p", "notebook-focus", c.focus));
       }
       if (c.workingOn) {
-        var woLine = el("p", "notebook-working", c.workingOn);
-        cblock.appendChild(woLine);
+        cblock.appendChild(el("p", "notebook-working", c.workingOn));
       }
       container.appendChild(cblock);
     }
+  }
+
+  // --- Article index page: full reading lists ---
+  function renderArticleIndex(container, plan) {
+    container.innerHTML = "";
+    var g = groupBySeries(plan);
+    var seriesMeta = g.seriesMeta;
+
+    // Jump links
+    var jumpDiv = el("div", "index-jump-links");
+    jumpDiv.appendChild(el("span", "index-jump-label", "Series:"));
+    g.groupOrder.forEach(function (seriesKey) {
+      var meta = seriesMeta[seriesKey] || { title: seriesKey };
+      var link = el("a", "index-jump-link", meta.title);
+      link.href = "#" + seriesKey;
+      jumpDiv.appendChild(link);
+    });
+    container.appendChild(jumpDiv);
+
+    // Series sections
+    g.groupOrder.forEach(function (seriesKey) {
+      var items = g.groups[seriesKey];
+      var meta = seriesMeta[seriesKey] || { title: seriesKey, description: "" };
+
+      var section = el("section", "index-series-section");
+      section.id = seriesKey;
+
+      section.appendChild(el("h2", "index-series-title", meta.title));
+      if (meta.description) {
+        section.appendChild(el("p", "index-series-desc", meta.description));
+      }
+
+      var countText = items.length + (items.length === 1 ? " article" : " articles") + " published";
+      section.appendChild(el("p", "index-series-count", countText));
+
+      // Article rows
+      items.forEach(function (p, i) {
+        var row = el("div", "index-article-row");
+
+        var num = el("span", "index-article-num", String(p.seriesOrder || (i + 1)).padStart(2, "0"));
+        row.appendChild(num);
+
+        var body = el("div", "index-article-body");
+
+        var titleLink = el("a", "index-article-title", p.title);
+        if (p.url) titleLink.href = p.url;
+        body.appendChild(titleLink);
+
+        if (p.focus) {
+          body.appendChild(el("p", "index-article-focus", p.focus));
+        }
+
+        row.appendChild(body);
+        section.appendChild(row);
+      });
+
+      // Current work for this series
+      if (plan.current && plan.current.series === seriesKey) {
+        var c = plan.current;
+        var currentRow = el("div", "index-article-row index-current-row");
+
+        currentRow.appendChild(el("span", "index-article-num", "—"));
+
+        var body = el("div", "index-article-body");
+        body.appendChild(el("span", "index-current-title", c.title));
+        body.appendChild(el("span", "tag tag-status", "In progress"));
+
+        if (c.focus) {
+          body.appendChild(el("p", "index-article-focus", c.focus));
+        }
+        if (c.workingOn) {
+          body.appendChild(el("p", "index-current-working", c.workingOn));
+        }
+
+        currentRow.appendChild(body);
+        section.appendChild(currentRow);
+      }
+
+      container.appendChild(section);
+    });
   }
 })();

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engineering Notebook — Article Index | Avivek Dwivedi</title>
+  <meta name="description" content="Technical articles organized into engineering series: Production AI Systems and Model Adaptation & Post-Training.">
+  <link rel="canonical" href="https://avivek-dwivedi.github.io/articles/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Engineering Notebook — Article Index | Avivek Dwivedi">
+  <meta property="og:description" content="Technical articles organized into engineering series.">
+  <meta property="og:url" content="https://avivek-dwivedi.github.io/articles/">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#article-main">Skip to content</a>
+
+  <nav class="nav" aria-label="Primary">
+    <span class="nav-brand"><a href="/">AVIVEK</a></span>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/#systems">Systems</a></li>
+      <li><a href="/#engineering">Engineering</a></li>
+      <li><a href="/#writing">Writing</a></li>
+      <li><a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <main id="article-main">
+    <div class="shell" style="max-width: var(--max-prose);">
+      <a class="back-home" href="/">← Back to home</a>
+      <p class="eyebrow">Article Index</p>
+      <h1>Engineering Notebook</h1>
+      <p class="subtitle" style="font-size:18px; color:var(--text-soft); margin:0 0 32px;">Technical articles organized into engineering series, with complete reading lists for each track.</p>
+
+      <div id="article-index" class="article-index">
+        <!-- Static fallback (replaced by JS if fetch succeeds) -->
+        <div class="index-jump-links">
+          <span class="index-jump-label">Series:</span>
+          <a class="index-jump-link" href="#production-ai-systems">Production AI Systems</a>
+          <a class="index-jump-link" href="#model-adaptation">Model Adaptation & Post-Training</a>
+        </div>
+
+        <section class="index-series-section" id="production-ai-systems">
+          <h2 class="index-series-title">Production AI Systems</h2>
+          <p class="index-series-desc">Inference, serving, API reliability and observability.</p>
+          <p class="index-series-count">4 articles published</p>
+
+          <div class="index-article-row">
+            <span class="index-article-num">01</span>
+            <div class="index-article-body">
+              <a class="index-article-title" href="/articles/llm-inference-engineering.html">LLM Inference Engineering: From Prompt to Token</a>
+              <p class="index-article-focus">Prefill, decode, KV cache, scheduling and GPU memory</p>
+            </div>
+          </div>
+
+          <div class="index-article-row">
+            <span class="index-article-num">02</span>
+            <div class="index-article-body">
+              <a class="index-article-title" href="/articles/production-llm-serving.html">Designing Production LLM Serving Systems</a>
+              <p class="index-article-focus">vLLM, TGI, SGLang, KServe, GPU workers and scaling</p>
+            </div>
+          </div>
+
+          <div class="index-article-row">
+            <span class="index-article-num">03</span>
+            <div class="index-article-body">
+              <a class="index-article-title" href="/articles/llm-api-production-limits.html">Building LLM APIs Under Production Limits</a>
+              <p class="index-article-focus">Adaptive rate limiting, TPM/RPM, queues, prompt caching, streaming recovery and bounded memory</p>
+            </div>
+          </div>
+
+          <div class="index-article-row">
+            <span class="index-article-num">04</span>
+            <div class="index-article-body">
+              <a class="index-article-title" href="/articles/private-llmops-multi-agent.html">Private LLMOps for Multi-Agent Systems</a>
+              <p class="index-article-focus">OpenTelemetry, Langfuse, AWS, multi-agent traces, context propagation, evaluations, cost/latency attribution</p>
+            </div>
+          </div>
+
+          <div class="index-article-row index-current-row">
+            <span class="index-article-num">—</span>
+            <div class="index-article-body">
+              <span class="index-current-title">Kubernetes for AI/ML Workloads</span>
+              <span class="tag tag-status">In progress</span>
+              <p class="index-article-focus">GPU scheduling, model serving, CPU/GPU workloads, KServe</p>
+              <p class="index-current-working">Designing Kubernetes infrastructure for AI/ML workloads including GPU scheduling, model serving, CPU/GPU workload separation and KServe integration.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="index-series-section" id="model-adaptation">
+          <h2 class="index-series-title">Model Adaptation & Post-Training</h2>
+          <p class="index-series-desc">Data, evaluation, fine-tuning and post-training.</p>
+          <p class="index-series-count">1 article published</p>
+
+          <div class="index-article-row">
+            <span class="index-article-num">01</span>
+            <div class="index-article-body">
+              <a class="index-article-title" href="/articles/before-the-first-gradient.html">Before the First Gradient: Data and Evaluation for Model Adaptation</a>
+              <p class="index-article-focus">Task specification, error taxonomy, baseline selection, data integrity, contamination detection, evaluation design, adaptation decision framework</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="shell">
+      <div class="footer-name">Avivek Dwivedi</div>
+      <div>Applied AI Engineer</div>
+      <div class="footer-links">
+        <a href="https://github.com/avivek-dwivedi" rel="noopener">GitHub ↗</a>
+      </div>
+      <div style="margin-top:12px;">&copy; <span id="year">2026</span> Avivek Dwivedi</div>
+    </div>
+  </footer>
+
+  <script src="/script.js" defer></script>
+</body>
+</html>

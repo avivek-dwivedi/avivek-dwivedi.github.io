@@ -1,39 +1,63 @@
 {
+  "series": {
+    "production-ai-systems": {
+      "title": "Production AI Systems",
+      "description": "Inference, serving, API reliability and observability.",
+      "order": 1
+    },
+    "model-adaptation": {
+      "title": "Model Adaptation & Post-Training",
+      "description": "Data, evaluation, fine-tuning and post-training.",
+      "order": 2
+    }
+  },
   "published": [
     {
       "title": "LLM Inference Engineering: From Prompt to Token",
       "focus": "Prefill, decode, KV cache, scheduling and GPU memory",
       "url": "/articles/llm-inference-engineering.html",
-      "series": "production-ai-systems"
+      "series": "production-ai-systems",
+      "seriesOrder": 1,
+      "status": "published"
     },
     {
       "title": "Designing Production LLM Serving Systems",
       "focus": "vLLM, TGI, SGLang, KServe, GPU workers and scaling",
       "url": "/articles/production-llm-serving.html",
-      "series": "production-ai-systems"
+      "series": "production-ai-systems",
+      "seriesOrder": 2,
+      "status": "published"
     },
     {
       "title": "Building LLM APIs Under Production Limits",
       "focus": "Adaptive rate limiting, TPM/RPM, queues, prompt caching, streaming recovery and bounded memory",
       "url": "/articles/llm-api-production-limits.html",
-      "series": "production-ai-systems"
+      "series": "production-ai-systems",
+      "seriesOrder": 3,
+      "status": "published"
     },
     {
       "title": "Private LLMOps for Multi-Agent Systems",
       "focus": "OpenTelemetry, Langfuse, AWS, multi-agent traces, context propagation, evaluations, cost/latency attribution",
       "url": "/articles/private-llmops-multi-agent.html",
-      "series": "production-ai-systems"
+      "series": "production-ai-systems",
+      "seriesOrder": 4,
+      "status": "published"
     },
     {
       "title": "Before the First Gradient: Data and Evaluation for Model Adaptation",
       "focus": "Task specification, error taxonomy, baseline selection, data integrity, contamination detection, evaluation design, adaptation decision framework",
       "url": "/articles/before-the-first-gradient.html",
-      "series": "model-adaptation"
+      "series": "model-adaptation",
+      "seriesOrder": 1,
+      "status": "published"
     }
   ],
   "current": {
     "title": "Kubernetes for AI/ML Workloads",
     "focus": "GPU scheduling, model serving, CPU/GPU workloads, KServe",
-    "workingOn": "Designing Kubernetes infrastructure for AI/ML workloads including GPU scheduling, model serving, CPU/GPU workload separation and KServe integration."
+    "workingOn": "Designing Kubernetes infrastructure for AI/ML workloads including GPU scheduling, model serving, CPU/GPU workload separation and KServe integration.",
+    "series": "production-ai-systems",
+    "status": "in-progress"
   }
 }
